@@ -62,6 +62,7 @@ from __future__ import print_function
 import glob
 import os
 import sys
+import csv
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -958,12 +959,11 @@ class CameraManager(object):
         bound_y = 0.5 + self._parent.bounding_box.extent.y
         Attachment = carla.AttachmentType
         self._camera_transforms = [
-            (carla.Transform(carla.Location(x=-5.5, z=2.5), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
-            (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=-8.0, z=6.0), carla.Rotation(pitch=6.0)), Attachment.SpringArm),
-            (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
-        # self._camera_transforms = [(carla.Transform(carla.Location(x=2, y=0, z=1), carla.Rotation(0, 0, 0)), Attachment.Rigid)]
+            # (carla.Transform(carla.Location(x=-5.5, z=2.5), carla.Rotation(pitch=8.0)), Attachment.SpringArm),
+            (carla.Transform(carla.Location(x=1.6, z=1.7)), Attachment.Rigid)]
+            # (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
+            # (carla.Transform(carla.Location(x=-8.0, z=6.0), carla.Rotation(pitch=6.0)), Attachment.SpringArm),
+            # (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
         self.transform_index = 1
         self.sensors = [
             ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
@@ -1070,32 +1070,21 @@ class CameraManager(object):
             array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
-            array = array[:, :, ::-1]
             
-            if args.save_data:
+            if args.save_data and (image.frame % 6==0):
                 control = parent_actor.get_control()
                 # print(control)
                 control_data = [control.steer, control.throttle, control.brake, control.reverse]
 
-                args.data_file.write(str(control_data)+'\n')
+                args.writer.writerow(control_data)
 
                 cv2.imwrite(args.directory+'/imgs/%08d.jpg' %image.frame, array)
-
+            
+            array = array[:, :, ::-1]
             self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
         if self.recording:
             image.save_to_disk('_out/%08d' % image.frame)
 
-
-def save_img(data_file, control_data, image):
-    return
-    # Image obtained is 32-bit per pixel. Need to compress it 8-bit
-    # image_bgra_8bit = np.frombuffer(image.raw_data, dtype = np.dtype("uint8"))
-    # reshape image to image width, height.
-    # image_bgra_8bit = np.reshape(image_bgra_8bit, (image.height, image.width, 4))    
-    # process_image = image_bgra_8bit[:,:,:3]/255
-
-    # dict_save = {'image': process_image, 'control': control_data}
-    # json.dump(dict_save, data_file)
 
 # ==============================================================================
 # -- game_loop() ---------------------------------------------------------------
@@ -1124,14 +1113,11 @@ def game_loop(args):
 
         clock = pygame.time.Clock()
         # controls = carla.Vehicle.get_control()
-        while True:
+        i = -1
+        while i<1e5:
+            i+=1
             clock.tick_busy_loop(60)
-            # throttle = world.player.get_control().throttle
-            # steer = world.player.get_control().steer
-            # brake = world.player.get_control().brake
-            # reverse = world.player.get_control().reverse
 
-            # control_data = [steer, throttle, brake, reverse]
             if controller.parse_events(client, world, clock):
                 return
             world.tick(clock)
@@ -1215,15 +1201,18 @@ def main():
         today = datetime.datetime.now()
         h = "0"+str(today.hour) if today.hour < 10 else str(today.hour)
         m = "0"+str(today.minute) if today.minute < 10 else str(today.minute)
+        s = "0"+str(today.second) if today.second < 10 else str(today.second)
+
         # Directory name representing dataset creation in format YYYYMMDD_HHMM
-        args.directory = "DATA/" + today.strftime('%Y%m%d_')+ h + m
+        args.directory = "DATA/" + today.strftime('%Y%m%d_')+ h + m + s
 
         if not os.path.exists(args.directory):
             os.makedirs(args.directory)
         if not os.path.exists(args.directory+'/imgs'):
             os.makedirs(args.directory+'/imgs')
 
-        args.data_file = open(args.directory+'/data.txt', "a+")
+        args.data_file = open(args.directory+'/data.csv', "a+")
+        args.writer = csv.writer(args.data_file)
 
     try:
 
