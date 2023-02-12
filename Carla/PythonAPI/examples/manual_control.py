@@ -89,6 +89,8 @@ import math
 import random
 import re
 import weakref
+import json
+import cv2
 
 try:
     import pygame
@@ -162,6 +164,7 @@ def get_actor_display_name(actor, truncate=250):
 
 class World(object):
     def __init__(self, carla_world, hud, args):
+        self.args = args
         self.world = carla_world
         self.actor_role_name = args.rolename
         try:
@@ -249,7 +252,7 @@ class World(object):
         self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
         self.gnss_sensor = GnssSensor(self.player)
         self.imu_sensor = IMUSensor(self.player)
-        self.camera_manager = CameraManager(self.player, self.hud, self._gamma)
+        self.camera_manager = CameraManager(self.player, self.hud, self._gamma, self.args)
         self.camera_manager.transform_index = cam_pos_index
         self.camera_manager.set_sensor(cam_index, notify=False)
         actor_type = get_actor_display_name(self.player)
@@ -945,7 +948,8 @@ class RadarSensor(object):
 
 
 class CameraManager(object):
-    def __init__(self, parent_actor, hud, gamma_correction):
+    def __init__(self, parent_actor, hud, gamma_correction, args):
+        self.args = args
         self.sensor = None
         self.surface = None
         self._parent = parent_actor
@@ -959,6 +963,7 @@ class CameraManager(object):
             (carla.Transform(carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-8.0, z=6.0), carla.Rotation(pitch=6.0)), Attachment.SpringArm),
             (carla.Transform(carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
+        # self._camera_transforms = [(carla.Transform(carla.Location(x=2, y=0, z=1), carla.Rotation(0, 0, 0)), Attachment.Rigid)]
         self.transform_index = 1
         self.sensors = [
             ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
@@ -1017,7 +1022,7 @@ class CameraManager(object):
             # We need to pass the lambda a weak reference to self to avoid
             # circular reference.
             weak_self = weakref.ref(self)
-            self.sensor.listen(lambda image: CameraManager._parse_image(weak_self, image))
+            self.sensor.listen(lambda image: CameraManager._parse_image(self.args, weak_self, self._parent, image))
         if notify:
             self.hud.notification(self.sensors[index][2])
         self.index = index
@@ -1034,7 +1039,7 @@ class CameraManager(object):
             display.blit(self.surface, (0, 0))
 
     @staticmethod
-    def _parse_image(weak_self, image):
+    def _parse_image(args, weak_self, parent_actor, image):
         self = weak_self()
         if not self:
             return
@@ -1066,10 +1071,31 @@ class CameraManager(object):
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
             array = array[:, :, ::-1]
+            
+            if args.save_data:
+                control = parent_actor.get_control()
+                # print(control)
+                control_data = [control.steer, control.throttle, control.brake, control.reverse]
+
+                args.data_file.write(str(control_data)+'\n')
+
+                cv2.imwrite(args.directory+'/imgs/%08d.jpg' %image.frame, array)
+
             self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
         if self.recording:
             image.save_to_disk('_out/%08d' % image.frame)
 
+
+def save_img(data_file, control_data, image):
+    return
+    # Image obtained is 32-bit per pixel. Need to compress it 8-bit
+    # image_bgra_8bit = np.frombuffer(image.raw_data, dtype = np.dtype("uint8"))
+    # reshape image to image width, height.
+    # image_bgra_8bit = np.reshape(image_bgra_8bit, (image.height, image.width, 4))    
+    # process_image = image_bgra_8bit[:,:,:3]/255
+
+    # dict_save = {'image': process_image, 'control': control_data}
+    # json.dump(dict_save, data_file)
 
 # ==============================================================================
 # -- game_loop() ---------------------------------------------------------------
@@ -1080,6 +1106,7 @@ def game_loop(args):
     pygame.init()
     pygame.font.init()
     world = None
+
 
     try:
         client = carla.Client(args.host, args.port)
@@ -1099,14 +1126,12 @@ def game_loop(args):
         # controls = carla.Vehicle.get_control()
         while True:
             clock.tick_busy_loop(60)
-            print(world.player.get_control())
+            # throttle = world.player.get_control().throttle
+            # steer = world.player.get_control().steer
+            # brake = world.player.get_control().brake
+            # reverse = world.player.get_control().reverse
 
-            throttle = world.player.get_control().throttle
-            steer = world.player.get_control().steer
-            brake = world.player.get_control().brake
-            reverse = world.player.get_control().reverse
-            # print(controller._control)
-            # print('\n')
+            # control_data = [steer, throttle, brake, reverse]
             if controller.parse_events(client, world, clock):
                 return
             world.tick(clock)
@@ -1120,6 +1145,8 @@ def game_loop(args):
 
         if world is not None:
             world.destroy()
+
+        args.data_file.close()
 
         pygame.quit()
 
@@ -1172,6 +1199,7 @@ def main():
         default=2.2,
         type=float,
         help='Gamma correction of the camera (default: 2.2)')
+    argparser.add_argument('--save_data', action='store_true', help='stores data for training')
     args = argparser.parse_args()
 
     args.width, args.height = [int(x) for x in args.res.split('x')]
@@ -1182,6 +1210,20 @@ def main():
     logging.info('listening to server %s:%s', args.host, args.port)
 
     print(__doc__)
+
+    if args.save_data:
+        today = datetime.datetime.now()
+        h = "0"+str(today.hour) if today.hour < 10 else str(today.hour)
+        m = "0"+str(today.minute) if today.minute < 10 else str(today.minute)
+        # Directory name representing dataset creation in format YYYYMMDD_HHMM
+        args.directory = "DATA/" + today.strftime('%Y%m%d_')+ h + m
+
+        if not os.path.exists(args.directory):
+            os.makedirs(args.directory)
+        if not os.path.exists(args.directory+'/imgs'):
+            os.makedirs(args.directory+'/imgs')
+
+        args.data_file = open(args.directory+'/data.txt', "a+")
 
     try:
 
