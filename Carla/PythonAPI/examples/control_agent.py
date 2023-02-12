@@ -104,7 +104,7 @@ def game_loop(args):
         #How much frames do we want to save
         while i < 25000:
             world_snapshot = world.wait_for_tick()
-            clear_output()
+            clear_output(``)
             display(f"{str(i)} frames saved")
             i += 1
     except:

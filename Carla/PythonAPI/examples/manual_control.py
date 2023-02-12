@@ -1096,8 +1096,17 @@ def game_loop(args):
         controller = KeyboardControl(world, args.autopilot)
 
         clock = pygame.time.Clock()
+        # controls = carla.Vehicle.get_control()
         while True:
             clock.tick_busy_loop(60)
+            print(world.player.get_control())
+
+            throttle = world.player.get_control().throttle
+            steer = world.player.get_control().steer
+            brake = world.player.get_control().brake
+            reverse = world.player.get_control().reverse
+            # print(controller._control)
+            # print('\n')
             if controller.parse_events(client, world, clock):
                 return
             world.tick(clock)
