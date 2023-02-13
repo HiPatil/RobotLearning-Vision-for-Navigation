@@ -2,13 +2,28 @@ import torch
 import torch.nn as nn
 
 class ClassificationNetwork(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes):
         """
         Implementation of the network layers. The image size of the input
         observations is 96x96 pixels.
         """
         super().__init__()
         gpu = torch.device('cuda')
+        self.num_classes = num_classes
+        self.conv_block = nn.Sequential(
+                            nn.Conv2d(3, 32, kernel_size=5, stride=2),
+                            nn.BatchNorm2d(32),
+                            nn.ReLU(),
+                            nn.Conv2d(32, 32, kernel_size=3, stride=1),
+                            nn.BatchNorm2d(32),
+                            nn.ReLU()
+                            )
+        self.linear_block = torch.nn.Sequential(
+                            nn.Linear(32*44*44, 2048),
+                            nn.ReLU(),
+                            nn.Linear(2048, self.num_classes),
+                            nn.LeakyReLU(negative_slope=0.2)
+                            )
 
 
     def forward(self, observation):
@@ -18,7 +33,10 @@ class ClassificationNetwork(torch.nn.Module):
         observation:   torch.Tensor of size (batch_size, height, width, channel)
         return         torch.Tensor of size (batch_size, C)
         """
-        pass
+        x = self.conv_block(observation)
+        x = torch.flatten(x, 1)
+        x = self.linear_block(x)
+        return x
 
     def actions_to_classes(self, actions):
         """
@@ -30,7 +48,45 @@ class ClassificationNetwork(torch.nn.Module):
         actions:        python list of N torch.Tensors of size 3
         return          python list of N torch.Tensors of size C
         """
-        pass
+        
+        #actions  are in form: [steer, throttle, brake, reverse]
+
+        '''
+        classes:
+            throttle
+            brake
+            steer left
+            steer right
+            steer left + throttle
+            steer right + throttle
+            steer left + brake
+            steer right + brake  
+            do nothing
+        '''
+        C = torch.zeros((actions.shape[0], 9))
+        for i, action in enumerate(actions):
+            if abs(action[0]) < 0.01 and action[1]!=0 and action[2] == 0:
+                C[i][0] = 1
+            elif abs(action[0]) < 0.01 and action[1]==0 and action[2] != 0:
+                C[i][1] = 1
+            elif action[0] < -0.01 and action[1]==0 and action[2] == 0:
+                C[i][2] = 1
+            elif action[0] > 0.01 and action[1]==0 and action[2] == 0:
+                C[i][3] = 1 
+            elif action[0] < -0.01 and action[1]!=0 and action[2] == 0:
+                C[i][4] = 1
+            elif action[0] > 0.01 and action[1]!=0 and action[2] == 0:
+                C[i][5] = 1
+            elif action[0] < -0.01 and action[1]==0 and action[2] != 0:
+                C[i][6] = 1
+            elif action[0] > 0.01 and action[1]==0 and action[2] != 0:
+                C[i][7] = 1
+            elif action[0] == 0.0 and action[1]==0 and action[2] == 0:
+                C[i][8] = 1
+
+        return C
+
+
 
     def scores_to_action(self, scores):
         """
@@ -40,6 +96,14 @@ class ClassificationNetwork(torch.nn.Module):
         scores:         python list of torch.Tensors of size C
         return          (float, float, float)
         """
-        pass
-
-
+        dict_convert = {
+            '0': [0.0, 1.0, 0.0],
+            '1': [0.0, 0.0, 1.0],
+            '2': [],
+            '3': [],
+            '4': [],
+            '5': [],
+            '6': [],
+            '7': [],
+            '8': []
+            }
