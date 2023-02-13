@@ -107,7 +107,9 @@ class ClassificationNetwork(torch.nn.Module):
             '7': [-1.0, 0.0, 1.0],
             '8': [0.0, 0.0, 0.0]
             }
-        
-        actions = dict_convert[str(torch.argmax(scores).item())]
+        key = torch.argmax(scores).item()
+        actions = dict_convert[str(key)]
+
+        return  actions
 
 # class ResnetRegression(torch.nn.Module):

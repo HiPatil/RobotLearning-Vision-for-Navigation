@@ -92,6 +92,7 @@ import re
 import weakref
 
 import torch
+from torchvision import transforms
 from network import ClassificationNetwork
 
 
@@ -1073,11 +1074,23 @@ class CameraManager(object):
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
             
-            array = array[:, :, ::-1]
+            # array = array[:, :, ::-1]
+
 
             ### Pass image through model and take particular action on the player
-            output = args.model(array)
-            actions = args.model.scores_to_action(output.item())
+            transform_image = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Resize((96, 96)),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                    ])
+            
+            input_array = transform_image(array)
+            input_array = input_array[[2,1,0], :, :]
+            input_array = input_array[None, :]
+
+            output = args.model(input_array.to('cuda'))
+            actions = args.model.scores_to_action(output.detach())
+            
             args.control.steer = actions[0]
             args.control.throttle = actions[1]
             args.control.brake = actions[2]
@@ -1205,7 +1218,7 @@ def main():
     ### Model Initialization ###
     gpu = torch.device('cuda')
 
-    args.model = ClassificationNetwork(9)
+    args.model = torch.load('model/test_model.pt')
     args.model.to(gpu)
     args.model.eval()
 
