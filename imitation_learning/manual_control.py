@@ -62,7 +62,7 @@ from __future__ import print_function
 import glob
 import os
 import sys
-import csv
+import pandas as pd
 
 try:
     sys.path.append(glob.glob('../Carla/PythonAPI/carla/dist/carla-*%d.%d-%s.egg' % (
@@ -90,7 +90,6 @@ import math
 import random
 import re
 import weakref
-import json
 import cv2
 
 try:
@@ -1070,16 +1069,25 @@ class CameraManager(object):
             array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
-            
-            if args.save_data and (image.frame % 6==0):
-                control = parent_actor.get_control()
-                # print(control)
-                control_data = [control.steer, control.throttle, control.brake, control.reverse]
 
-                args.writer.writerow(control_data)
+            if args.save_data and (image.frame % 4==0):
 
                 cv2.imwrite(args.directory+'/imgs/%08d.jpg' %image.frame, array)
-            
+
+                control = parent_actor.get_control()
+                data = {
+                    'file_name': [args.directory+'/imgs/%08d.jpg'%image.frame],
+                    'steer': [round(control.steer, 3)],
+                    'throttle': [round(control.throttle, 3)],
+                    'brake': [round(control.brake, 3)],
+                }
+                df = pd.DataFrame(data)
+                # if not os.path.isfile(args.directory+'data.csv'):
+                #     df.to_csv(args.directory+'data.csv', mode='w', index=False, header=False)
+                # else:
+                df.to_csv(args.directory+'/data.csv', mode='a', index=False, header=False)
+
+
             array = array[:, :, ::-1]
             self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
         if self.recording:
@@ -1113,10 +1121,9 @@ def game_loop(args):
 
         clock = pygame.time.Clock()
         # controls = carla.Vehicle.get_control()
-        i = -1
-        while i<2e5:
-            i+=1
+        while True:
             clock.tick_busy_loop(60)
+            print(controller._control)
 
             if controller.parse_events(client, world, clock):
                 return
@@ -1131,8 +1138,6 @@ def game_loop(args):
 
         if world is not None:
             world.destroy()
-
-        args.data_file.close()
 
         pygame.quit()
 
@@ -1210,9 +1215,6 @@ def main():
             os.makedirs(args.directory)
         if not os.path.exists(args.directory+'/imgs'):
             os.makedirs(args.directory+'/imgs')
-
-        args.data_file = open(args.directory+'/data.csv', "a+")
-        args.writer = csv.writer(args.data_file)
 
     try:
 

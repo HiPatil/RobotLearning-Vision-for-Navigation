@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from torchvision import models
+
 
 class ClassificationNetwork(torch.nn.Module):
     def __init__(self, num_classes):
@@ -14,13 +16,19 @@ class ClassificationNetwork(torch.nn.Module):
                             nn.Conv2d(3, 32, kernel_size=5, stride=2),
                             nn.BatchNorm2d(32),
                             nn.ReLU(),
-                            nn.Conv2d(32, 32, kernel_size=3, stride=1),
-                            nn.BatchNorm2d(32),
+                            nn.Conv2d(32, 64, kernel_size=3, stride=1),
+                            nn.BatchNorm2d(64),
+                            nn.ReLU(),
+                            nn.Conv2d(64, 128, kernel_size=3, stride=1),
+                            nn.BatchNorm2d(128),
                             nn.ReLU()
                             )
+        # self.GlobalAvgPool = nn.AvgPool2d(90)
         self.linear_block = torch.nn.Sequential(
-                            nn.Linear(32*44*44, 2048),
+                            nn.Linear(225792, 2048),
                             nn.ReLU(),
+                            # nn.Linear(2048, 512),
+                            # nn.ReLU(),
                             nn.Linear(2048, self.num_classes),
                             nn.LeakyReLU(negative_slope=0.2)
                             )
@@ -34,6 +42,7 @@ class ClassificationNetwork(torch.nn.Module):
         return         torch.Tensor of size (batch_size, C)
         """
         x = self.conv_block(observation)
+        # x = self.GlobalAvgPool(x)
         x = torch.flatten(x, 1)
         x = self.linear_block(x)
         return x
@@ -65,23 +74,23 @@ class ClassificationNetwork(torch.nn.Module):
         '''
         C = torch.zeros((actions.shape[0], 9))
         for i, action in enumerate(actions):
-            if abs(action[0]) < 0.01 and action[1]!=0 and action[2] == 0:
+            if abs(action[0]) < 0.005 and action[1] > 0.2 and action[2]<action[1]:
                 C[i][0] = 1
-            elif abs(action[0]) < 0.01 and action[1]==0 and action[2] != 0:
+            elif abs(action[0]) < 0.005 and action[1]<action[2] and action[2] > 0.2:
                 C[i][1] = 1
-            elif action[0] < -0.01 and action[1]==0 and action[2] == 0:
+            elif action[0] < -0.005 and action[1] < 0.1 and action[2] < 0.1:
                 C[i][2] = 1
-            elif action[0] > 0.01 and action[1]==0 and action[2] == 0:
+            elif action[0] > 0.005 and action[1] < 0.1 and action[2] < 0.1:
                 C[i][3] = 1 
-            elif action[0] < -0.01 and action[1]!=0 and action[2] == 0:
+            elif action[0] < -0.005 and action[1] > 0.2 and action[2]<action[1]:
                 C[i][4] = 1
-            elif action[0] > 0.01 and action[1]!=0 and action[2] == 0:
+            elif action[0] > 0.005 and action[1] > 0.2 and action[2]<action[1]:
                 C[i][5] = 1
-            elif action[0] < -0.01 and action[1]==0 and action[2] != 0:
+            elif action[0] < -0.005 and action[1]<action[2] and action[2] > 0.2:
                 C[i][6] = 1
-            elif action[0] > 0.01 and action[1]==0 and action[2] != 0:
+            elif action[0] > 0.005 and action[1]<action[2] and action[2] > 0.2:
                 C[i][7] = 1
-            elif action[0] == 0.0 and action[1]==0 and action[2] == 0:
+            elif abs(action[0]) < 0.005 and action[1] < 0.1 and action[2] < 0.1:
                 C[i][8] = 1
 
         return C
@@ -97,19 +106,19 @@ class ClassificationNetwork(torch.nn.Module):
         return          (float, float, float)
         """
         dict_convert = {
-            '0': [0.0, 1.0, 0.0],
-            '1': [0.0, 0.0, 1.0],
-            '2': [-1.0, 0.0, 0.0],
-            '3': [1.0, 0.0, 0.0],
-            '4': [-1.0, 1.0, 0.0],
-            '5': [1.0, 1.0, 0.0],
-            '6': [-1.0, 0.0, 1.0],
-            '7': [-1.0, 0.0, 1.0],
+            '0': [0.0, 0.7, 0.0],
+            '1': [0.0, 0.0, 0.7],
+            '2': [-0.7, 0.0, 0.0],
+            '3': [0.7, 0.0, 0.0],
+            '4': [-0.7, 0.7, 0.0],
+            '5': [0.7, 0.7, 0.0],
+            '6': [-0.7, 0.0, 0.7],
+            '7': [0.7, 0.0, 0.7],
             '8': [0.0, 0.0, 0.0]
             }
         key = torch.argmax(scores).item()
-        actions = dict_convert[str(key)]
+        actions = dict_convert[key]
 
         return  actions
 
-# class ResnetRegression(torch.nn.Module):
+

@@ -10,7 +10,7 @@ from network import ClassificationNetwork
 from dataset import get_dataloader
 
 
-def train(data_folder, save_path):
+def train(args):
     """
     Function for training the network. You can make changes (e.g., add validation dataloader, change batch_size and #of epoch) accordingly.
     """
@@ -21,13 +21,14 @@ def train(data_folder, save_path):
 
     infer_action = ClassificationNetwork(nr_of_classes)
     infer_action = infer_action.to(gpu)
-    optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-3)
     
+    if not args.scratch:
+        infer_action = torch.load(args.save_path+'best_clf_noGAP.pt')
 
-    start_time = time.time()
-
-    train_loader = get_dataloader(data_folder, batch_size, num_workers=16, drop_last=True)
+    train_loader, _ = get_dataloader(args.data_folder, batch_size, image_size=(96, 96), num_workers=16)
     
+    best_loss = 1e8
     for epoch in range(nr_epochs):
         total_loss = 0
         batch_in = []
@@ -45,15 +46,16 @@ def train(data_folder, save_path):
             loss.backward()
             optimizer.step()
             total_loss += loss
-        time_per_epoch = (time.time() - start_time) / (epoch + 1)
-        time_left = (1.0 * time_per_epoch) * (nr_epochs - 1 - epoch)
-        print("Epoch %5d\t[Train]\tloss: %.6f \tETA: +%fs" % (
-            epoch + 1, total_loss, time_left))
         
-        if epoch%10 ==0:
-            torch.save(infer_action, save_path)
+        if total_loss < best_loss:
+            torch.save(infer_action, args.save_path+'best_clf_noGAP.pt')
+            print("Best model saved")
+            best_loss = total_loss
+
+        print("Epoch %5d\t[Train]\tloss: %.6f" % (epoch + 1, total_loss))
+        torch.save(infer_action, args.save_path+'last_clf_noGAP.pt')
+        
             
-    torch.save(infer_action, save_path)
 
 
 def cross_entropy_loss(batch_out, batch_gt):
@@ -72,8 +74,9 @@ def cross_entropy_loss(batch_out, batch_gt):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='EC500 Homework1 Imitation Learning')
-    parser.add_argument('-d', '--data_folder', default="data/", type=str, help='path to where you save the dataset you collect')
-    parser.add_argument('-s', '--save_path', default="model/test_model.pt", type=str, help='path where to save your model in .pth format')
+    parser.add_argument('-d', '--data_folder', default="DATA/", type=str, help='path to where you save the dataset you collect')
+    parser.add_argument('-s', '--save_path', default="model/", type=str, help='path where to save your model in .pth format')
+    parser.add_argument('--scratch', action='store_true')
     args = parser.parse_args()
     
-    train(args.data_folder, args.save_path)
+    train(args)

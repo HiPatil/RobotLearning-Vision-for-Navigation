@@ -1073,29 +1073,38 @@ class CameraManager(object):
             array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
-            
-            # array = array[:, :, ::-1]
 
+            if image.frame % 5 == 0:
+                ### Pass image through model and take particular action on the player
+                transform_image = transforms.Compose([
+                        transforms.ToTensor(),
+                        transforms.Resize((96, 96)),
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                        ])
+                
+                input_array = transform_image(array.copy())
+                input_array = input_array[[2,1,0], :, :]
+                input_array = input_array[None, :]
+                
+                output = args.model(input_array.to('cuda'))
+                actions = args.model.scores_to_action(output.detach())
 
-            ### Pass image through model and take particular action on the player
-            transform_image = transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Resize((96, 96)),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                    ])
-            
-            input_array = transform_image(array)
-            input_array = input_array[[2,1,0], :, :]
-            input_array = input_array[None, :]
+                control = carla.VehicleControl()
 
-            output = args.model(input_array.to('cuda'))
-            actions = args.model.scores_to_action(output.detach())
-            
-            args.control.steer = actions[0]
-            args.control.throttle = actions[1]
-            args.control.brake = actions[2]
+                if actions[2]<0.1:
+                    actions[2] = 0.0
+                
+                if actions[1]>actions[2]:
+                    actions[2]=0.0
 
-            parent_actor.apply_control(args.control)
+                control.steer = actions[0]
+                control.throttle = actions[1]/2
+                control.brake = actions[2]
+
+                parent_actor.apply_control(control)
+
+                print('Steer: %.3f \t|\t Throttle: %.3f \t|\t Brake: %.3f' %(actions[0], actions[1], actions[2]))
+            array = array[:, :, ::-1]
 
             self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
         if self.recording:
@@ -1128,19 +1137,10 @@ def game_loop(args):
         # controller = KeyboardControl(world, args.autopilot)
         clock = pygame.time.Clock()
         # controls = carla.Vehicle.get_control()
-        print(world.player)
-        args.control = carla.VehicleControl()
         # control.throttle = 1.0
-        i = -1
-        while i<2e5:
-            i+=1
+        while True:
             clock.tick_busy_loop(60)
-            # print(controller._control)
-            # world.player.apply_control(control)
             
-            # print(world.player.get_control())
-            # if controller.parse_events(client, world, clock):
-            #     return
             world.tick(clock)
             world.render(display)
             pygame.display.flip()
@@ -1218,7 +1218,7 @@ def main():
     ### Model Initialization ###
     gpu = torch.device('cuda')
 
-    args.model = torch.load('model/test_model.pt')
+    args.model = torch.load('model/classification.pt')
     args.model.to(gpu)
     args.model.eval()
 
