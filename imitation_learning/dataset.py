@@ -15,7 +15,6 @@ class CarlaDataset(Dataset):
         self.data_dir = data_dir
         # print(self.image_list)
         data_list = glob.glob(self.data_dir+'/*/data.csv')
-        print(data_list)
         self.data_df = pd.read_csv(data_list[0], header = None)
         for data in data_list[1:]:
             df = pd.read_csv(data, header = None)
@@ -27,6 +26,7 @@ class CarlaDataset(Dataset):
                     transforms.Resize(img_size),
                     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                     ])
+
 
     def __len__(self):
         return len(self.data_df)

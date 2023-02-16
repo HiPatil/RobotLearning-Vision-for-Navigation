@@ -65,34 +65,28 @@ class ClassificationNetwork(torch.nn.Module):
         classes:
             throttle
             brake
-            steer left
-            steer right
             steer left + throttle
             steer right + throttle
             steer left + brake
             steer right + brake  
             do nothing
         '''
-        C = torch.zeros((actions.shape[0], 9))
+        C = torch.zeros((actions.shape[0], 7))
         for i, action in enumerate(actions):
-            if abs(action[0]) < 0.005 and action[1] > 0.2 and action[2]<action[1]:
+            if abs(action[0]) < 1e-3 and action[1] > 0.0 and action[2]<action[1]:
                 C[i][0] = 1
-            elif abs(action[0]) < 0.005 and action[1]<action[2] and action[2] > 0.2:
+            elif abs(action[0]) < 1e-3 and action[1]<action[2] and action[2] > 0.0:
                 C[i][1] = 1
-            elif action[0] < -0.005 and action[1] < 0.1 and action[2] < 0.1:
+            elif action[0] < -1e-3 and action[1] > 0.0 and action[2]<action[1]:
                 C[i][2] = 1
-            elif action[0] > 0.005 and action[1] < 0.1 and action[2] < 0.1:
-                C[i][3] = 1 
-            elif action[0] < -0.005 and action[1] > 0.2 and action[2]<action[1]:
+            elif action[0] > 1e-3 and action[1] > 0.0 and action[2]<action[1]:
+                C[i][3] = 1
+            elif action[0] < -1e-3 and action[1]<action[2] and action[2] > 0.0:
                 C[i][4] = 1
-            elif action[0] > 0.005 and action[1] > 0.2 and action[2]<action[1]:
+            elif action[0] > 1e-3 and action[1]<action[2] and action[2] > 0.0:
                 C[i][5] = 1
-            elif action[0] < -0.005 and action[1]<action[2] and action[2] > 0.2:
+            else:
                 C[i][6] = 1
-            elif action[0] > 0.005 and action[1]<action[2] and action[2] > 0.2:
-                C[i][7] = 1
-            elif abs(action[0]) < 0.005 and action[1] < 0.1 and action[2] < 0.1:
-                C[i][8] = 1
 
         return C
 
@@ -109,13 +103,11 @@ class ClassificationNetwork(torch.nn.Module):
         dict_convert = {
             '0': [0.0, 0.7, 0.0],
             '1': [0.0, 0.0, 0.7],
-            '2': [-0.7, 0.0, 0.0],
-            '3': [0.7, 0.0, 0.0],
-            '4': [-0.7, 0.7, 0.0],
-            '5': [0.7, 0.7, 0.0],
-            '6': [-0.7, 0.0, 0.7],
-            '7': [0.7, 0.0, 0.7],
-            '8': [0.0, 0.0, 0.0]
+            '2': [-0.7, 0.7, 0.0],
+            '3': [0.7, 0.7, 0.0],
+            '4': [-0.7, 0.0, 0.7],
+            '5': [0.7, 0.0, 0.7],
+            '6': [0.0, 0.0, 0.0]
             }
         key = torch.argmax(F.softmax(scores)).item()
         actions = dict_convert[str(key)]

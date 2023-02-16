@@ -1,7 +1,7 @@
 import time
 import random
 import argparse
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 import torch
 import torch.nn as nn
@@ -15,26 +15,28 @@ def train(args):
     Function for training the network. You can make changes (e.g., add validation dataloader, change batch_size and #of epoch) accordingly.
     """
     nr_epochs = 100
-    batch_size = 64
-    nr_of_classes = 9  # needs to be changed
+    batch_size = 128
+    nr_of_classes = 7  # needs to be changed
     gpu = torch.device('cuda')
 
     infer_action = ClassificationNetwork(nr_of_classes)
+    if not args.scratch:
+        infer_action = torch.load(args.save_path+'best_clf_noGAP.pt')
+        
     infer_action = infer_action.to(gpu)
     optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-3)
     
-    if not args.scratch:
-        infer_action = torch.load(args.save_path+'best_clf_noGAP.pt')
-
-    train_loader, _ = get_dataloader(args.data_folder, batch_size, image_size=(96, 96), num_workers=16)
     
+
+    train_loader, _ = get_dataloader(args.data_folder, batch_size, image_size=(96, 96), num_workers=32)
+    print("Dataset Size: ", len(train_loader.dataset))
+
     best_loss = 1e8
     for epoch in range(nr_epochs):
         total_loss = 0
         batch_in = []
         batch_gt = []
-
-        for batch_idx, batch in enumerate(tqdm(train_loader)):
+        for batch_idx, batch in enumerate(tqdm(train_loader, position=0, leave=True, ascii=True)):
             batch_in, batch_gt = batch[0].to(gpu), batch[1].to(gpu)
             batch_gt = infer_action.actions_to_classes(batch_gt).to(gpu)
 
