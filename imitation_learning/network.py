@@ -73,17 +73,21 @@ class ClassificationNetwork(torch.nn.Module):
         '''
         C = torch.zeros((actions.shape[0], 7))
         for i, action in enumerate(actions):
-            if abs(action[0]) < 1e-3 and action[1] > 0.0 and action[2]<action[1]:
+            steer = action[0]
+            throttle = action[1]
+            brake = action[2]
+            epsi = 1e-3
+            if throttle > epsi and abs(steer) < epsi:
                 C[i][0] = 1
-            elif abs(action[0]) < 1e-3 and action[1]<action[2] and action[2] > 0.0:
+            elif brake > 0 and abs(steer) < epsi:
                 C[i][1] = 1
-            elif action[0] < -1e-3 and action[1] > 0.0 and action[2]<action[1]:
+            elif throttle > epsi and steer < -epsi:
                 C[i][2] = 1
-            elif action[0] > 1e-3 and action[1] > 0.0 and action[2]<action[1]:
+            elif throttle > epsi and steer > epsi:
                 C[i][3] = 1
-            elif action[0] < -1e-3 and action[1]<action[2] and action[2] > 0.0:
+            elif brake > 0 and steer < -epsi:
                 C[i][4] = 1
-            elif action[0] > 1e-3 and action[1]<action[2] and action[2] > 0.0:
+            elif brake > 0 and steer > epsi:
                 C[i][5] = 1
             else:
                 C[i][6] = 1
@@ -101,15 +105,15 @@ class ClassificationNetwork(torch.nn.Module):
         return          (float, float, float)
         """
         dict_convert = {
-            '0': [0.0, 0.7, 0.0],
-            '1': [0.0, 0.0, 0.7],
-            '2': [-0.7, 0.7, 0.0],
-            '3': [0.7, 0.7, 0.0],
-            '4': [-0.7, 0.0, 0.7],
-            '5': [0.7, 0.0, 0.7],
-            '6': [0.0, 0.0, 0.0]
+            '0': [0., 1., 0.],
+            '1': [0., 0., 1.],
+            '2': [-1., 1., 0.],
+            '3': [1., 1, 0.],
+            '4': [-1., 0., 1.],
+            '5': [1., 0., 1.],
+            '6': [0., 0., 0.]
             }
-        key = torch.argmax(F.softmax(scores)).item()
+        key = torch.argmax(scores, axis=1).item()
         actions = dict_convert[str(key)]
 
         return  actions

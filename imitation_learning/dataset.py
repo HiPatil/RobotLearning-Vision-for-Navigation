@@ -20,7 +20,7 @@ class CarlaDataset(Dataset):
             df = pd.read_csv(data, header = None)
             # print(df)
             self.data_df = self.data_df.append(df, ignore_index = True)
-
+        
         self.transform_image = transforms.Compose([
                     # transforms.ToTensor(),
                     transforms.Resize(img_size),

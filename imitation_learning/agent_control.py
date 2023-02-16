@@ -1075,43 +1075,42 @@ class CameraManager(object):
             array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
+            array = array[:, :, ::-1]
+            self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
 
-            if image.frame % 5 == 0:
-                ### Pass image through model and take particular action on the player
-                transform_image = transforms.Compose([
-                        transforms.ToTensor(),
-                        transforms.Resize((96, 96)),
-                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                        ])
-                
-                input_array = transform_image(array.copy())
-                input_array = input_array[[2,1,0], :, :]
-                input_array = input_array[None, :]
-                
+            ### Pass image through model and take particular action on the player
+            transform_image = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Resize((96, 96)),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                    ])
+            
+            input_array = transform_image(array.copy())
+            # input_array = input_array[[2,1,0], :, :]
+            input_array = input_array[None, :]
+            
+            with torch.no_grad():
                 output = args.model(input_array.to('cuda'))
                 output = F.softmax(output)
                 print(output)
-                print(torch.argmax(output))
-                actions = args.model.scores_to_action(output.detach())
+                actions = args.model.scores_to_action(output.detach().cpu())
 
-                control = carla.VehicleControl()
+            control = carla.VehicleControl()
 
-                if actions[2]<0.1:
-                    actions[2] = 0.0
-                
-                if actions[1]>actions[2]:
-                    actions[2]=0.0
+            # if actions[2]<0.1:
+            #     actions[2] = 0.0
+            
+            # if actions[1]>actions[2]:
+            #     actions[2]=0.0
 
-                control.steer = actions[0]
-                control.throttle = actions[1]
-                control.brake = actions[2]
+            control.steer = actions[0]/3
+            control.throttle = actions[1]/2
+            control.brake = actions[2]
 
-                parent_actor.apply_control(control)
+            parent_actor.apply_control(control)
 
-                print('Steer: %.3f \t|\t Throttle: %.3f \t|\t Brake: %.3f' %(actions[0], actions[1], actions[2]))
-            array = array[:, :, ::-1]
+            print('Steer: %.3f \t|\t Throttle: %.3f \t|\t Brake: %.3f' %(actions[0], actions[1], actions[2]))
 
-            self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
         if self.recording:
             image.save_to_disk('_out/%08d' % image.frame)
 
@@ -1228,7 +1227,6 @@ def main():
 
     args.model = torch.load(args.model)
     args.model.to(gpu)
-    args.model.eval()
 
     try:
 

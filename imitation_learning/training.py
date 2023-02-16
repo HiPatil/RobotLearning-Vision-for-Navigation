@@ -28,7 +28,7 @@ def train(args):
     
     
 
-    train_loader, _ = get_dataloader(args.data_folder, batch_size, image_size=(96, 96), num_workers=32)
+    train_loader, _ = get_dataloader(args.data_folder, batch_size, image_size=(96, 96), num_workers=20)
     print("Dataset Size: ", len(train_loader.dataset))
 
     best_loss = 1e8

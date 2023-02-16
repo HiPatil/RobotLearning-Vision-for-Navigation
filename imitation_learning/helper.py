@@ -1,15 +1,23 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import glob
 
 
 N = 60
 K = 1
 bins = 200
-df = pd.read_csv("DATA/data_img_control.csv", header=None)
-n, bins, patches =  plt.hist(df[1], bins=bins)
-print(df[1].value_counts())
-angles = np.array(df[1])
+data_list = glob.glob('DATA'+'/*/data.csv')
+data_df = pd.read_csv(data_list[0], header = None)
+for data in data_list[1:]:
+    df = pd.read_csv(data, header = None)
+    # print(df)
+    data_df = data_df.append(df, ignore_index = True)
+n, bins, patches =  plt.hist(data_df[1], bins=bins)
+
+print(data_df)
+print(data_df[1].value_counts())
+angles = np.array(data_df[1])
 n = np.array(n)
 
 idx = n.argsort()[-K:][::-1]    # find the largest K bins
