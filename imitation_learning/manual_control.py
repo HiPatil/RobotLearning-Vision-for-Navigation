@@ -1070,16 +1070,16 @@ class CameraManager(object):
             array = np.reshape(array, (image.height, image.width, 4))
             array = array[:, :, :3]
 
-            if args.save_data and (image.frame % 4==0):
+            if args.save_data and (image.frame % 6 ==0):
 
                 cv2.imwrite(args.directory+'/imgs/%08d.jpg' %image.frame, array)
 
                 control = parent_actor.get_control()
                 data = {
                     'file_name': [args.directory+'/imgs/%08d.jpg'%image.frame],
-                    'steer': [round(control.steer, 3)],
-                    'throttle': [round(control.throttle, 3)],
-                    'brake': [round(control.brake, 3)],
+                    'steer': [control.steer],
+                    'throttle': [control.throttle],
+                    'brake': [control.brake],
                 }
                 df = pd.DataFrame(data)
                 # if not os.path.isfile(args.directory+'data.csv'):
@@ -1123,7 +1123,6 @@ def game_loop(args):
         # controls = carla.Vehicle.get_control()
         while True:
             clock.tick_busy_loop(60)
-            print(controller._control)
 
             if controller.parse_events(client, world, clock):
                 return

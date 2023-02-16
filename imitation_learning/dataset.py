@@ -14,7 +14,13 @@ class CarlaDataset(Dataset):
     def __init__(self, data_dir, img_size):
         self.data_dir = data_dir
         # print(self.image_list)
-        self.data_df = pd.read_csv(self.data_dir+'data_img_control.csv')
+        data_list = glob.glob(self.data_dir+'/*/data.csv')
+        print(data_list)
+        self.data_df = pd.read_csv(data_list[0], header = None)
+        for data in data_list[1:]:
+            df = pd.read_csv(data, header = None)
+            # print(df)
+            self.data_df = self.data_df.append(df, ignore_index = True)
 
         self.transform_image = transforms.Compose([
                     # transforms.ToTensor(),

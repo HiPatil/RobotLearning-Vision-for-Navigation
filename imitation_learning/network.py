@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torchvision import models
 
 
@@ -116,8 +117,8 @@ class ClassificationNetwork(torch.nn.Module):
             '7': [0.7, 0.0, 0.7],
             '8': [0.0, 0.0, 0.0]
             }
-        key = torch.argmax(scores).item()
-        actions = dict_convert[key]
+        key = torch.argmax(F.softmax(scores)).item()
+        actions = dict_convert[str(key)]
 
         return  actions
 

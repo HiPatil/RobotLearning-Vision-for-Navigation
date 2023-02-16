@@ -93,6 +93,8 @@ import weakref
 
 import torch
 from torchvision import transforms
+import torch.nn.functional as F
+
 from network import ClassificationNetwork
 
 
@@ -1087,6 +1089,9 @@ class CameraManager(object):
                 input_array = input_array[None, :]
                 
                 output = args.model(input_array.to('cuda'))
+                output = F.softmax(output)
+                print(output)
+                print(torch.argmax(output))
                 actions = args.model.scores_to_action(output.detach())
 
                 control = carla.VehicleControl()
@@ -1098,7 +1103,7 @@ class CameraManager(object):
                     actions[2]=0.0
 
                 control.steer = actions[0]
-                control.throttle = actions[1]/2
+                control.throttle = actions[1]
                 control.brake = actions[2]
 
                 parent_actor.apply_control(control)
@@ -1204,7 +1209,10 @@ def main():
         default=2.2,
         type=float,
         help='Gamma correction of the camera (default: 2.2)')
+    argparser.add_argument('--model', type=str, help="Model path")
+    argparser.add_argument('--clf', action='store_true', help="if clf then 1, else regression")
     args = argparser.parse_args()
+
 
     args.width, args.height = [int(x) for x in args.res.split('x')]
 
@@ -1218,7 +1226,7 @@ def main():
     ### Model Initialization ###
     gpu = torch.device('cuda')
 
-    args.model = torch.load('model/classification.pt')
+    args.model = torch.load(args.model)
     args.model.to(gpu)
     args.model.eval()
 
