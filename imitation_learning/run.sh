@@ -1,1 +1,1 @@
-python training.py --scratch --arch resnet -j 32 --model resnet50_noAug --image_size (256, 144) -b 64 
+python training.py --scratch --arch resnet -j 32 --model resnet50_noAug --image_size 256x144 -b 256 
