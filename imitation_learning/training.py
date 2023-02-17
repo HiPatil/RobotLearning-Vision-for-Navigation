@@ -6,9 +6,11 @@ from tqdm.auto import tqdm
 import torch
 import torch.nn as nn
 from torchvision import datasets, models, transforms
+from torchinfo import summary
 
 
-from network import ClassificationNetwork, actions_to_classes
+
+from network import ClassificationNetwork, ClassificationNetworkUpgrade, actions_to_classes
 from dataset import get_dataloader
 
 
@@ -31,6 +33,8 @@ def train(args):
                         nn.Linear(256, nr_of_classes),
                         nn.LeakyReLU(negative_slope=0.2)
                         )
+    elif args.arch == 'clf_upgrade':
+        infer_action = ClassificationNetworkUpgrade(nr_of_classes)
     else:
         infer_action = ClassificationNetwork(nr_of_classes)
         
@@ -38,11 +42,12 @@ def train(args):
         infer_action = torch.load(args.save_path+'best_'+ args.model)
         
     infer_action = infer_action.to(gpu)
-    infer_action = torch.nn.DataParallel(infer_action)
     optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-3)
     
-    
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95, last_epoch=50)
+    # summary(infer_action, input_size=(args.batch_size, 3, args.height, args.width))
 
+    # exit(0)
     train_loader, _ = get_dataloader(args.data_folder, args.batch_size, image_size=(args.height, args.width), num_workers=args.num_workers)
     print("Dataset Size: ", len(train_loader.dataset))
 
@@ -69,7 +74,8 @@ def train(args):
             print("Best model saved")
             best_loss = total_loss
 
-        print("Epoch %5d\t[Train]\tloss: %.6f" % (epoch + 1, total_loss))
+        scheduler.step()
+        print("Epoch %5d\t[Train]\tloss: %.6f \t LR: %.6f" % (epoch + 1, total_loss, optimizer.param_groups[0]['lr']))
         torch.save(infer_action, args.save_path+'last_'+ args.model)
         
             

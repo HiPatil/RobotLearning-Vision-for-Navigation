@@ -14,7 +14,7 @@ class ClassificationNetwork(torch.nn.Module):
         gpu = torch.device('cuda')
         self.num_classes = num_classes
         self.conv_block = nn.Sequential(
-                            nn.Conv2d(3, 32, kernel_size=3, stride=1),
+                            nn.Conv2d(3, 32, kernel_size=5, stride=2),
                             nn.BatchNorm2d(32),
                             nn.ReLU(),
                             nn.Conv2d(32, 64, kernel_size=3, stride=1),
@@ -48,6 +48,46 @@ class ClassificationNetwork(torch.nn.Module):
         x = self.linear_block(x)
         return x
 
+class ClassificationNetworkUpgrade(torch.nn.Module):
+    def __init__(self, num_classes):
+        super().__init__()
+        self.num_classes= num_classes
+        self.conv_block = nn.Sequential(
+                        nn.Conv2d(3, 32, kernel_size=3, stride=1),
+                        nn.ReLU(),
+                        nn.MaxPool2d(2),
+                        nn.Dropout(0.1),
+
+                        nn.Conv2d(32, 64, kernel_size=3, stride=1),
+                        nn.ReLU(),
+                        nn.MaxPool2d(2),
+                        nn.Dropout(0.1),
+
+                        nn.Conv2d(64, 128, kernel_size=3, stride=1),
+                        nn.ReLU(),
+                        nn.MaxPool2d(2),
+                        nn.Dropout(0.1),
+
+                        nn.Conv2d(128, 256, kernel_size=3, stride=1),
+                        nn.ReLU(),
+                        nn.MaxPool2d(2)
+        )
+        self.linear_block = nn.Sequential(
+                            nn.Linear(256*11*22, 2048),
+                            nn.ReLU(),
+                            # nn.Linear(2048, 512),
+                            # nn.ReLU(),
+                            nn.Linear(2048, self.num_classes),
+                            nn.LeakyReLU(negative_slope=0.2)
+        )
+
+    def forward(self, observation): 
+        x = self.conv_block(observation)
+        # print(x.shape)
+        x = torch.flatten(x, 1)
+        x = self.linear_block(x)
+        return x
+        
 def actions_to_classes(actions):
     """
     For a given set of actions map every action to its corresponding
