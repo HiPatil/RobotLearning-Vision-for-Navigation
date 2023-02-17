@@ -1,3 +1,7 @@
 Carla/
 data/
 imitation_learning/data/
+imitation_learning/DATA/
+imitation_learning/model*
+__pycache__/
+*.zip

@@ -1097,14 +1097,9 @@ class CameraManager(object):
 
             control = carla.VehicleControl()
 
-            # if actions[2]<0.1:
-            #     actions[2] = 0.0
-            
-            # if actions[1]>actions[2]:
-            #     actions[2]=0.0
 
             control.steer = actions[0]/3
-            control.throttle = actions[1]/2
+            control.throttle = actions[1]/3
             control.brake = actions[2]
 
             parent_actor.apply_control(control)
