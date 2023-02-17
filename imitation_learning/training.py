@@ -23,6 +23,7 @@ def train(args):
     gpu = torch.device('cuda')
 
     if args.arch == 'resnet':
+        print('ResNet50 Initialized')
         # weights="IMAGENET1K_V2"
         infer_action = models.resnet50()
         num_features = infer_action.fc.in_features
@@ -34,20 +35,25 @@ def train(args):
                         nn.LeakyReLU(negative_slope=0.2)
                         )
     elif args.arch == 'clf_upgrade':
+        print('Upgraded Classifier Initialized')
         infer_action = ClassificationNetworkUpgrade(nr_of_classes)
     else:
+        print('Classifier Initialized')
         infer_action = ClassificationNetwork(nr_of_classes)
         
     if not args.scratch:
+        ('Resuming from best saved')
         infer_action = torch.load(args.save_path+'best_'+ args.model)
         
     infer_action = infer_action.to(gpu)
-    optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-3)
-    
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95, last_epoch=50)
-    # summary(infer_action, input_size=(args.batch_size, 3, args.height, args.width))
+    optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-2)
 
-    # exit(0)
+    if args.scheduler:
+        print('Using LR scheduler')
+        scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+
+    summary(infer_action, input_size=(args.batch_size, 3, args.height, args.width))
+
     train_loader, _ = get_dataloader(args.data_folder, args.batch_size, image_size=(args.height, args.width), num_workers=args.num_workers)
     print("Dataset Size: ", len(train_loader.dataset))
 
@@ -74,7 +80,8 @@ def train(args):
             print("Best model saved")
             best_loss = total_loss
 
-        scheduler.step()
+        if args.scheduler:
+            scheduler.step()
         print("Epoch %5d\t[Train]\tloss: %.6f \t LR: %.6f" % (epoch + 1, total_loss, optimizer.param_groups[0]['lr']))
         torch.save(infer_action, args.save_path+'last_'+ args.model)
         
@@ -90,9 +97,8 @@ def cross_entropy_loss(batch_out, batch_gt):
     batch_gt:       torch.Tensor of size (batch_size, C)
     return          float
     """
-    criterion = nn.CrossEntropyLoss()
-    loss = criterion(batch_out, batch_gt)
-    return loss
+    loss = -torch.sum(batch_gt*torch.log(batch_out))
+    return loss/batch_out.shape[0]
 
 
 if __name__ == "__main__":
@@ -105,6 +111,7 @@ if __name__ == "__main__":
     parser.add_argument('--scratch', action='store_true')
     parser.add_argument('-j', '--num_workers', default=16, type=int, help="Total number of workers")
     parser.add_argument('--model', default="test", type=str, help="name of model")
+    parser.add_argument('--scheduler', default=0, type=int, help="Use LR scheduler")
     args = parser.parse_args()
     
     args.width, args.height = [int(x) for x in args.image_size.split('x')]
