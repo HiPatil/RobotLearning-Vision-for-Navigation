@@ -134,8 +134,6 @@ def actions_to_classes(actions):
 
     return C
 
-
-
 def scores_to_action(scores):
     """
     Maps the scores predicted by the network to an action-class and returns

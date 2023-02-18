@@ -2,9 +2,12 @@ import time
 import random
 import argparse
 from tqdm.auto import tqdm
+import pandas as pd
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
 from torchvision import datasets, models, transforms
 from torchinfo import summary
 
@@ -46,18 +49,19 @@ def train(args):
         infer_action = torch.load(args.save_path+'best_'+ args.model)
         
     infer_action = infer_action.to(gpu)
-    optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-3)
 
     if args.scheduler:
         print('Using LR scheduler')
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
-    summary(infer_action, input_size=(args.batch_size, 3, args.height, args.width))
+    # summary(infer_action, input_size=(args.batch_size, 3, args.height, args.width))
 
     train_loader, _ = get_dataloader(args.data_folder, args.batch_size, image_size=(args.height, args.width), num_workers=args.num_workers)
     print("Dataset Size: ", len(train_loader.dataset))
 
     best_loss = 1e8
+    loss = 1e6
     for epoch in range(nr_epochs):
         total_loss = 0
         batch_in = []
@@ -67,9 +71,8 @@ def train(args):
             batch_gt = actions_to_classes(batch_gt).to(gpu)
 
             batch_out = infer_action(batch_in)
-            # print(batch_out[0])
-            loss = cross_entropy_loss(batch_out, batch_gt)
 
+            loss = cross_entropy_loss(batch_out, batch_gt)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -84,9 +87,18 @@ def train(args):
             scheduler.step()
         print("Epoch %5d\t[Train]\tloss: %.6f \t LR: %.6f" % (epoch + 1, total_loss, optimizer.param_groups[0]['lr']))
         torch.save(infer_action, args.save_path+'last_'+ args.model)
-        
-            
 
+        _save = {'loss':[total_loss.item()],
+                'lr': optimizer.param_groups[0]['lr']}
+
+        df = pd.DataFrame(_save)
+        df.to_csv(args.save_path+args.model+'loss.csv', mode='a', index=False, header=False)
+        
+def log_softmax(x):
+    # c = x.max()
+    # log_sum_exp = torch.log(torch.exp(x-c).sum(dim=1, keepdims=True))
+    # return x-c-log_sum_exp
+    return F.log_softmax(x, dim=1)
 
 def cross_entropy_loss(batch_out, batch_gt):
     """
@@ -97,8 +109,8 @@ def cross_entropy_loss(batch_out, batch_gt):
     batch_gt:       torch.Tensor of size (batch_size, C)
     return          float
     """
-    loss = -torch.sum(batch_gt*torch.log(batch_out))
-    return loss/batch_out.shape[0]
+    loss = -torch.sum(batch_gt.detach() * log_softmax(batch_out))/batch_gt.shape[0]
+    return loss
 
 
 if __name__ == "__main__":
