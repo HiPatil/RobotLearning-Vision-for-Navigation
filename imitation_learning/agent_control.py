@@ -95,6 +95,8 @@ import torch
 from torchvision import transforms
 import torch.nn.functional as F
 from network import ClassificationNetwork, ClassificationNetworkUpgrade, MultiClassClassifier
+from torchinfo import summary
+
 
 
 try:
@@ -854,7 +856,7 @@ class CameraManager(object):
             array = array[:, :, ::-1]
             self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
 
-            if image.frame%5==0:
+            if image.frame%1==0:
                 ### Pass image through model and take particular action on the player
                 transform_image = transforms.Compose([
                         transforms.ToTensor(),
@@ -876,8 +878,8 @@ class CameraManager(object):
                 control = carla.VehicleControl()
 
 
-                control.steer = actions[0]/3
-                control.throttle = actions[1]/3
+                control.steer = actions[0]/4
+                control.throttle = actions[1]/4
                 control.brake = actions[2]
 
                 parent_actor.apply_control(control)
@@ -984,11 +986,13 @@ def main():
     argparser.add_argument('--model', type=str, help="Model path")
     argparser.add_argument('--clf', action='store_true', help="if clf then 1, else regression")
     argparser.add_argument('--image_size', default='96x96', type=str, help="image size to be passed into model")
+    argparser.add_argument('--arch', default='', type=str, help="To select which architecture to use")
+
     args = argparser.parse_args()
 
 
     args.width, args.height = [int(x) for x in args.res.split('x')]
-    args.img_width, args.img_height = [int(x) for x in args.res.split('x')]
+    args.img_width, args.img_height = [int(x) for x in args.image_size.split('x')]
 
 
     log_level = logging.DEBUG if args.debug else logging.INFO
@@ -1000,8 +1004,12 @@ def main():
 
     ### Model Initialization ###
     gpu = torch.device('cuda')
+    args.batch_size=1
 
     args.model = torch.load(args.model)
+    print(args.model)
+    summary(args.model, input_size=(args.batch_size, 3, args.img_height, args.img_width))
+
     args.model.to(gpu)
 
     try:

@@ -143,12 +143,11 @@ class ClassificationNetworkUpgrade(torch.nn.Module):
                         nn.MaxPool2d(2)
         )
         self.linear_block = nn.Sequential(
-                            nn.Linear(256*11*22, 2048),
+                            nn.Linear(256*5*8, 2048),
                             nn.ReLU(),
                             # nn.Linear(2048, 512),
                             # nn.ReLU(),
                             nn.Linear(2048, self.num_classes),
-                            nn.LeakyReLU(negative_slope=0.2)
         )
 
     def forward(self, observation): 
