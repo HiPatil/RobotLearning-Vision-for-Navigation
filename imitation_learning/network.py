@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
+from torchvision import datasets, models, transforms
 
 
 class ClassificationNetwork(torch.nn.Module):
@@ -164,28 +165,17 @@ class MultiClassClassifier(torch.nn.Module):
         observations is 96x96 pixels.
         """
         super().__init__()
-        gpu = torch.device('cuda')
+        # weights="IMAGENET1K_V2"
         self.num_classes = num_classes
-        self.conv_block = nn.Sequential(
-                            nn.Conv2d(3, 32, kernel_size=5, stride=2),
-                            nn.BatchNorm2d(32),
-                            nn.ReLU(),
-                            nn.Conv2d(32, 64, kernel_size=3, stride=1),
-                            nn.BatchNorm2d(64),
-                            nn.ReLU(),
-                            nn.Conv2d(64, 128, kernel_size=3, stride=1),
-                            nn.BatchNorm2d(128),
-                            nn.ReLU()
-                            )
-        # self.GlobalAvgPool = nn.AvgPool2d(90)
-        self.linear_block = torch.nn.Sequential(
-                            nn.Linear(225792, 4096),
-                            nn.ReLU(),
-                            nn.Linear(4096, 512),
-                            nn.ReLU(),
-                            nn.Linear(512, self.num_classes),
-                            nn.Sigmoid()
-                            )
+        resnet = models.resnet50(weights="IMAGENET1K_V2")
+        num_features = resnet.fc.in_features
+        resnet.fc = nn.Sequential(
+                        nn.Linear(num_features, self.num_classes), 
+                        # nn.ReLU(),
+                        # nn.Linear(256, ),
+                        nn.Sigmoid()
+                        )
+        self.model = resnet
 
 
     def forward(self, observation):
@@ -195,11 +185,8 @@ class MultiClassClassifier(torch.nn.Module):
         observation:   torch.Tensor of size (batch_size, height, width, channel)
         return         torch.Tensor of size (batch_size, C)
         """
-        x = self.conv_block(observation)
-        # x = self.GlobalAvgPool(x)
-        x = torch.flatten(x, 1)
-        x = self.linear_block(x)
-        return x      
+        
+        return self.model(observation)      
 
     def actions_to_classes(self, actions):
         """
@@ -217,22 +204,49 @@ class MultiClassClassifier(torch.nn.Module):
         '''
         classes:
             throttle
-            brake
             steer_left
             steer_right
-
-            In this case, CAR can either throttle or brake, either go right or go left.
-
+            brake
         '''
-        C = torch.zeros((actions.shape[0], 2))
+        C = torch.zeros((actions.shape[0], self.num_classes))
         for i, action in enumerate(actions):
             steer = action[0]
             throttle = action[1]
             brake = action[2]
             epsi = 1e-3
-            if throttle > brake:
+            if throttle > epsi:
                 C[i][0] = 1
-            if steer > 0.0:
+            if steer < -epsi:
                 C[i][1] = 1
+            if steer > epsi:
+                C[i][2] = 1
+            if brake > epsi:
+                C[i][3] = 1
         return C
+    
+    def scores_to_action(scores):
+        """
+        Maps the scores predicted by the network to an action-class and returns
+        the corresponding action [accelaration, steering, braking].
+                        C = number of classes
+        scores:         python list of torch.Tensors of size C
+        return          (float, float, float)
+        """
+        scores = scores[0]
+        actions = [0., 0., 0.]
+        if scores[0] > 0.5:
+            actions[1] = 1.0
+        if scores[3]>0.5:
+            actions[2] = 1.0
+        
+        '''
+        for steering,
+        - if both classes are less than 0.5, no steer.
+        - if left steer is above threshold and right below, then steer left
+        - if right steer is above threshold and left below, then steer right
+        '''
+        if scores[1] < 0.5 and scores[2] < 0.5: actions[0] = 0.0
+        elif scores[1] > 0.5 and scores[2] < 0.5: actions[0] = -1.0
+        elif scores[1] < 0.5 and scores[2] > 0.5: actions[0] = 1.0
 
+        return  actions

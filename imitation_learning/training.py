@@ -13,7 +13,7 @@ from torchinfo import summary
 
 
 
-from network import ClassificationNetwork, ClassificationNetworkUpgrade, actions_to_classes
+from network import ClassificationNetwork, ClassificationNetworkUpgrade, MultiClassClassifier
 from dataset import get_dataloader
 
 
@@ -40,15 +40,20 @@ def train(args):
     elif args.arch == 'clf_upgrade':
         print('Upgraded Classifier Initialized')
         infer_action = ClassificationNetworkUpgrade(nr_of_classes)
+    elif args.arch == "multiclass":
+        print("Multiclass Classifier")
+        infer_action = MultiClassClassifier(num_classes=4)
+        criterion = nn.BCELoss()
     else:
         print('Classifier Initialized')
         infer_action = ClassificationNetwork(nr_of_classes)
         
     if not args.scratch:
         ('Resuming from best saved')
-        infer_action = torch.load(args.save_path+'best_'+ args.model)
+        infer_action = torch.load(args.save_path+'best_'+ args.model+ '.pt')
         
     infer_action = infer_action.to(gpu)
+    infer_action = torch.nn.DataParallel(infer_action)
     optimizer = torch.optim.Adam(infer_action.parameters(), lr=1e-3)
 
     if args.scheduler:
@@ -61,32 +66,40 @@ def train(args):
     print("Dataset Size: ", len(train_loader.dataset))
 
     best_loss = 1e8
-    loss = 1e6
     for epoch in range(nr_epochs):
         total_loss = 0
         batch_in = []
         batch_gt = []
-        for batch_idx, batch in enumerate(tqdm(train_loader, position=0, leave=True, ascii=True)):
+        tq = tqdm(train_loader, position=0, leave=True, ascii=True)
+        for batch_idx, batch in enumerate(tq):
             batch_in, batch_gt = batch[0].to(gpu), batch[1].to(gpu)
-            batch_gt = actions_to_classes(batch_gt).to(gpu)
+            batch_gt = infer_action.module.actions_to_classes(batch_gt).to(gpu)
 
             batch_out = infer_action(batch_in)
+            # print(batch_gt)
+            # print(batch_out)
 
-            loss = cross_entropy_loss(batch_out, batch_gt)
+            if args.arch == "multiclass":
+                loss = criterion(batch_out, batch_gt)
+            else:
+                loss = cross_entropy_loss(batch_out, batch_gt)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             total_loss += loss
+            tq.set_description("L %.4f" %loss.item() )
+            # if batch_idx==5:
+            #     exit(0)
         
         if total_loss < best_loss:
-            torch.save(infer_action, args.save_path+'best_' + args.model)
+            torch.save(infer_action, args.save_path+'best_' + args.model + '.pt')
             print("Best model saved")
             best_loss = total_loss
 
         if args.scheduler:
             scheduler.step()
         print("Epoch %5d\t[Train]\tloss: %.6f \t LR: %.6f" % (epoch + 1, total_loss, optimizer.param_groups[0]['lr']))
-        torch.save(infer_action, args.save_path+'last_'+ args.model)
+        torch.save(infer_action, args.save_path+'last_'+ args.model+ '.pt')
 
         _save = {'loss':[total_loss.item()],
                 'lr': optimizer.param_groups[0]['lr']}

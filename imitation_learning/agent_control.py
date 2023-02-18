@@ -94,7 +94,7 @@ import weakref
 import torch
 from torchvision import transforms
 import torch.nn.functional as F
-from network import scores_to_action
+from network import ClassificationNetwork, ClassificationNetworkUpgrade, MultiClassClassifier
 
 
 try:
@@ -854,31 +854,35 @@ class CameraManager(object):
             array = array[:, :, ::-1]
             self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
 
-            ### Pass image through model and take particular action on the player
-            transform_image = transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Resize((args.img_height, args.img_width)),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-                    ])
-            
-            input_array = transform_image(array.copy())
-            input_array = input_array[None, :]
-            
-            with torch.no_grad():
-                output = args.model(input_array.to('cuda'))
-                output = F.softmax(output)
-                actions = scores_to_action(output.detach().cpu())
+            if image.frame%5==0:
+                ### Pass image through model and take particular action on the player
+                transform_image = transforms.Compose([
+                        transforms.ToTensor(),
+                        transforms.Resize((args.img_height, args.img_width)),
+                        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                        ])
+                
+                input_array = transform_image(array.copy())
+                input_array = input_array[None, :]
+                
+                with torch.no_grad():
+                    output = args.model(input_array.to('cuda'))
+                    print(output)
+                    if args.arch == "multiclass":
+                        actions = MultiClassClassifier.scores_to_action(output.detach().cpu())
+                    else:
+                        actions = ClassificationNetwork.scores_to_action(output.detach().cpu())
 
-            control = carla.VehicleControl()
+                control = carla.VehicleControl()
 
 
-            control.steer = actions[0]/3
-            control.throttle = actions[1]/3
-            control.brake = actions[2]
+                control.steer = actions[0]/3
+                control.throttle = actions[1]/3
+                control.brake = actions[2]
 
-            parent_actor.apply_control(control)
+                parent_actor.apply_control(control)
 
-            print('Steer: %.3f \t|\t Throttle: %.3f \t|\t Brake: %.3f' %(actions[0], actions[1], actions[2]))
+                print('Steer: %.3f \t|\t Throttle: %.3f \t|\t Brake: %.3f' %(control.steer, control.throttle, control.brake))
 
         if self.recording:
             image.save_to_disk('_out/%08d' % image.frame)
