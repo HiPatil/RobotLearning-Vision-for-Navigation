@@ -24,7 +24,6 @@ class CarlaDataset(Dataset):
         self.transform_image = transforms.Compose([
                     # transforms.ToTensor(),
                     transforms.Resize(img_size),
-                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
                     ])
 
 
@@ -42,7 +41,7 @@ class CarlaDataset(Dataset):
             idx = idx.tolist()
 
         img_name = self.data_df.iloc[idx, 0]
-        image = read_image(img_name)
+        image = read_image(img_name)/255.0
         image = image[[2,1,0], :, :]
         image = self.transform_image(image.type(torch.FloatTensor))
 

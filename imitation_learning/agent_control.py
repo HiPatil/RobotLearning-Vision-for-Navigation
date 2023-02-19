@@ -869,18 +869,25 @@ class CameraManager(object):
                 
                 with torch.no_grad():
                     output = args.model(input_array.to('cuda'))
-                    print(output)
-                    if args.arch == "multiclass":
-                        actions = MultiClassClassifier.scores_to_action(output.detach().cpu())
+                    actions = output.detach()
+                    if args.clf:
+                        if args.arch == "multiclass":
+                            actions = MultiClassClassifier.scores_to_action(actions)
+                        else:
+                            actions = ClassificationNetwork.scores_to_action(actions)
                     else:
-                        actions = ClassificationNetwork.scores_to_action(output.detach().cpu())
+                        actions = actions[0].tolist()
 
                 control = carla.VehicleControl()
 
 
-                control.steer = actions[0]/4
-                control.throttle = actions[1]/4
-                control.brake = actions[2]
+                control.steer = actions[0]/3
+                if actions[1]>actions[2]:
+                    control.throttle = actions[1]/3
+                    control.brake = 0.0
+                else:
+                    control.throttle = 0.0
+                    control.brake = 1.0
 
                 parent_actor.apply_control(control)
 
