@@ -40,7 +40,7 @@ def train(args):
         print('Using LR scheduler')
         scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
 
-    summary(model, input_size=(args.batch_size, 3, args.height, args.width))
+    # summary(model, input_size=(args.batch_size, 3, args.height, args.width))
 
     train_loader, _ = get_dataloader(args.data_folder, args.batch_size, image_size=(args.height, args.width), num_workers=args.num_workers)
     print("Dataset Size: ", len(train_loader.dataset))
@@ -54,6 +54,7 @@ def train(args):
         for batch_idx, batch in enumerate(tq):
             images, actions = batch[0].to(gpu), batch[1].to(gpu)
             # actions = model.module.actions_to_classes(actions).to(gpu)
+            actions[:, 0] = (actions[:, 0]+1.0)/2.0
 
             actions_output = model(images)
 
@@ -62,8 +63,9 @@ def train(args):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
             total_loss += loss
-            tq.set_description("L %.4f" %loss.item() )
+            tq.set_description("L %.4f" % loss)
             # if batch_idx==5:
             #     exit(0)
         

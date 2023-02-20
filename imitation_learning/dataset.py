@@ -8,6 +8,7 @@ from torchvision import transforms
 from torchvision.io import read_image
 
 from torch.utils.data import Dataset
+from helper import balance_dataset
 
 
 class CarlaDataset(Dataset):
@@ -21,6 +22,7 @@ class CarlaDataset(Dataset):
             # print(df)
             self.data_df = self.data_df.append(df, ignore_index = True)
         
+        self.data_df = balance_dataset(self.data_df)
         self.transform_image = transforms.Compose([
                     # transforms.ToTensor(),
                     transforms.Resize(img_size),
@@ -49,6 +51,8 @@ class CarlaDataset(Dataset):
         controls = np.array(controls, dtype=np.float32)  
 
         return image, torch.FloatTensor(controls)
+
+    
 
 
 def get_dataloader(data_dir, batch_size, image_size, num_workers=8, shuffle=True):
