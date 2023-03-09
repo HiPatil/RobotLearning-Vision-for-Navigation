@@ -20,11 +20,11 @@ def homography_ipmnorm2g(top_view_region):
 	H_ipmnorm2g = cv2.getPerspectiveTransform(src, np.float32(top_view_region))
 	return H_ipmnorm2g
 
-bev = np.zeros((200, 200, 3))
-H, W = 200, 200
+bev = np.zeros((400, 400, 3))
+H, W = 400, 400
 top_view_region = np.float32([[50, -25], [50, 25], [0, 25], [0, -25]])
 
-img = cv2.imread('00015300.jpg')
+img = cv2.imread('00027126.jpg')
 print(img.shape)
 # camera intrinsic
 camera_xyz = [-5.5, 0, 2.5]
