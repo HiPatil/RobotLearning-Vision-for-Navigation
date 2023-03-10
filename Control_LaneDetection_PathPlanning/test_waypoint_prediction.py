@@ -8,72 +8,55 @@ import numpy as np
 import pyglet
 from pyglet import gl
 from pyglet.window import key
+import cv2
 
-# action variables
-a = np.array( [0.0, 0.1, 0.0] )
 
-# def keyboard commands
-def key_press(k, mod):
-    global restart
-    if k==0xff0d: restart = True
-    if k==key.LEFT:  a[0] = -1.0
-    if k==key.RIGHT: a[0] = +1.0
-    if k==key.UP:    a[1] = +1.0
-    if k==key.DOWN:  a[2] = +0.8   # set 1.0 for wheels to block to zero rotation
+# # Read BEV image
+img = cv2.imread('imgs/output.jpg')
+# img = cv2.imread('imgs/bev_final.jpg')
 
-def key_release(k, mod):
-    if k==key.LEFT  and a[0]==-1.0: a[0] = 0
-    if k==key.RIGHT and a[0]==+1.0: a[0] = 0
-    if k==key.UP:    a[1] = 0
-    if k==key.DOWN:  a[2] = 0
+cv2.imshow('img', np.uint8(img))
 
-# init environement
-env = CarRacing()
-env.render()
-env.viewer.window.on_key_press = key_press
-env.viewer.window.on_key_release = key_release
-env.reset()
-
-# define variables
-total_reward = 0.0
-steps = 0
-restart = False
+# resize image, if not in shape (96, 96)
+if img.shape != (96, 96):
+    print('Resizing')
+    img = cv2.resize(img, (96, 96))
 
 # init modules of the pipeline
 LD_module = LaneDetection()
+
+lane1, lane2 = LD_module.lane_detection(img)
+waypoints = waypoint_prediction(lane1, lane2)
+# print(waypoints)
+speed = target_speed_prediction(waypoints)
+print(speed)
 
 # init extra plot
 fig = plt.figure()
 plt.ion()
 plt.show()
 
-while True:
-    # perform step
-    s, r, done, speed, info = env.step(a)
-    
-    # lane detection
-    lane1, lane2 = LD_module.lane_detection(s)
 
-    # waypoint and target_speed prediction
-    waypoints = waypoint_prediction(lane1, lane2)
-    target_speed = target_speed_prediction(waypoints)
 
-    # reward
-    total_reward += r
+#     # waypoint and target_speed prediction
+#     target_speed = target_speed_prediction(waypoints)
 
-    # outputs during training
-    if steps % 2 == 0 or done:
-        print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
-        print("step {} total_reward {:+0.2f}".format(steps, total_reward))
+#     # reward
+#     total_reward += r
 
-        LD_module.plot_state_lane(s, steps, fig, waypoints=waypoints)
+#     # outputs during training
+#     if steps % 2 == 0 or done:
+#         print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
+#         print("step {} total_reward {:+0.2f}".format(steps, total_reward))
+
+#         LD_module.plot_state_lane(s, steps, fig, waypoints=waypoints)
         
-    steps += 1
-    env.render()
+#     steps += 1
+#     env.render()
 
-    # check if stop
-    if done or restart or steps>=600: 
-        print("step {} total_reward {:+0.2f}".format(steps, total_reward))
-        break
+#     # check if stop
+#     if done or restart or steps>=600: 
+#         print("step {} total_reward {:+0.2f}".format(steps, total_reward))
+#         break
 
-env.close()
+# env.close()

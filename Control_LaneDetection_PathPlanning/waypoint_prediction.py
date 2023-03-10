@@ -19,9 +19,14 @@ def curvature(waypoints):
 	args: 
 		waypoints [2, num_waypoints] !!!!!
 	'''
-
-	return curvature
-
+	waypoints = waypoints.T
+	curv = 0
+	for i in range(1, waypoints.shape[0]-1):
+		term1 = waypoints[i+1]-waypoints[i]
+		term2 = waypoints[i]-waypoints[i-1]
+		curv += np.dot(term1, term2)/(np.linalg.norm(term1)*np.linalg.norm(term2))
+	
+	return curv
 
 def smoothing_objective(waypoints, waypoints_center, weight_curvature=40):
 	'''
@@ -33,7 +38,7 @@ def smoothing_objective(waypoints, waypoints_center, weight_curvature=40):
 		weight_curvature (default=40)
 	'''
 	# mean least square error between waypoint and way point center
-	ls_tocenter = np.mean((waypoints_center - waypoints)**2)
+	ls_tocenter = np.sum((waypoints_center - waypoints)**2)
 
 	# derive curvature
 	curv = curvature(waypoints.reshape(2,-1))
@@ -59,10 +64,14 @@ def waypoint_prediction(roadside1_spline, roadside2_spline, num_waypoints=6, way
 		##### TODO #####
 	 
 		# create spline arguments
+		t = np.linspace(0, 1, num_waypoints)
 
 		# derive roadside points from spline
+		lane_boundary1_points = np.array(splev(t, roadside1_spline))
+		lane_boundary2_points = np.array(splev(t, roadside2_spline))
 
 		# derive center between corresponding roadside points
+		way_points = (lane_boundary1_points + lane_boundary2_points)/2
 
 		# output way_points with shape(2 x Num_waypoints)
 		return way_points
@@ -71,12 +80,16 @@ def waypoint_prediction(roadside1_spline, roadside2_spline, num_waypoints=6, way
 		##### TODO #####
 
 		# create spline arguments
+		t = np.linspace(0, 1, num_waypoints)
 
 		# derive roadside points from spline
+		lane_boundary1_points = np.array(splev(t, roadside1_spline))
+		lane_boundary2_points = np.array(splev(t, roadside2_spline))
 
 		# derive center between corresponding roadside points
-		way_point_center = 
-		
+		way_points_center = (lane_boundary1_points + lane_boundary2_points)/2
+		way_points_center = way_points_center.reshape(2*num_waypoints, -1)
+
 		# optimization
 		way_points = minimize(smoothing_objective, 
 					  (way_points_center), 
@@ -102,6 +115,10 @@ def target_speed_prediction(waypoints, num_waypoints_used=5,
 	output:
 		target_speed (float)
 	'''
+	# Initial Parameters
+	curv = curvature(waypoints)
 
+	exp_term = np.exp(-exp_constant*np.abs(waypoints.shape[1] - 2 - curv))
+	target_speed = (max_speed-offset_speed)*exp_term + offset_speed
 
 	return target_speed
