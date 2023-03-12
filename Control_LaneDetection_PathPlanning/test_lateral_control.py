@@ -11,7 +11,7 @@ from pyglet import gl
 from pyglet.window import key
 
 # action variables 
-a = np.array( [0.0, 0.1, 0.0] )
+a = np.array( [0.0, 0.05, 0.0] )
 
 # init environement
 env = CarRacing()
@@ -48,6 +48,7 @@ while True:
 
 	# control with constant gas and no braking
 	a[0] = LatC_module.stanley(waypoints, speed)
+	# print(a[0])
 
 	# reward
 	total_reward += r
@@ -62,7 +63,7 @@ while True:
 	env.render()
 
 	# check if stop
-	if done or restart or steps>=600: 
+	if done or restart: #or steps>=600: 
 		print("step {} total_reward {:+0.2f}".format(steps, total_reward))
 		break
 env.close()
