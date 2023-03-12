@@ -4,6 +4,8 @@ from scipy.signal import find_peaks
 from scipy.interpolate import splprep, splev
 from scipy.optimize import minimize
 import time
+np.set_printoptions(suppress=True)
+
 
 
 def normalize(v):
@@ -25,7 +27,6 @@ def curvature(waypoints):
 		term1 = waypoints[i+1]-waypoints[i]
 		term2 = waypoints[i]-waypoints[i-1]
 		curv += np.dot(term1, term2)/(np.linalg.norm(term1)*np.linalg.norm(term2))
-	
 	return curv
 
 def smoothing_objective(waypoints, waypoints_center, weight_curvature=40):
@@ -38,10 +39,11 @@ def smoothing_objective(waypoints, waypoints_center, weight_curvature=40):
 		weight_curvature (default=40)
 	'''
 	# mean least square error between waypoint and way point center
-	ls_tocenter = np.sum((waypoints_center - waypoints)**2)
+	waypoints = waypoints.reshape(2, -1)
+	ls_tocenter = np.mean((waypoints_center - waypoints)**2)
 
 	# derive curvature
-	curv = curvature(waypoints.reshape(2,-1))
+	curv = curvature(waypoints)
 
 	return -1 * weight_curvature * curv + ls_tocenter
 
@@ -88,7 +90,6 @@ def waypoint_prediction(roadside1_spline, roadside2_spline, num_waypoints=6, way
 
 		# derive center between corresponding roadside points
 		way_points_center = (lane_boundary1_points + lane_boundary2_points)/2
-		way_points_center = way_points_center.reshape(2*num_waypoints, -1)
 
 		# optimization
 		way_points = minimize(smoothing_objective, 
