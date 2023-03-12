@@ -33,7 +33,7 @@ class LaneDetection:
 
 	'''
 
-	def __init__(self, cut_size=68, spline_smoothness=10, gradient_threshold=14, distance_maxima_gradient=3):
+	def __init__(self, cut_size=66, spline_smoothness=10, gradient_threshold=14, distance_maxima_gradient=3):
 		self.car_position = np.array([48,0])
 		self.spline_smoothness = spline_smoothness
 		self.cut_size = cut_size
@@ -63,8 +63,8 @@ class LaneDetection:
 		H, W = 400, 400
 		top_view_region = np.float32([[50, -25], [50, 25], [0, 25], [0, -25]])
 
-		img = cv2.imread('00027126.jpg')
-		print(img.shape)
+		# front_view_image = cv2.imread('00027126.jpg')
+		# print(front_view_image.shape)
 		# camera intrinsic
 		camera_xyz = [-5.5, 0, 2.5]
 		cam_yaw, cam_pitch, cam_roll = 0.0, 8.0, 0.0
@@ -79,11 +79,11 @@ class LaneDetection:
 		K[0,0] = K[1,1] = focal
 		K[0, 2] = width / 2.0
 		K[1, 2] = height / 2.0
-		print('\nExtrinsic: \n', K)
+		# print('\nExtrinsic: \n', K)
 
 		RT = np.array(carla.Transform(carla.Location(*camera_xyz), carla.Rotation(yaw=cam_yaw, pitch=cam_pitch, roll=cam_roll)).get_matrix())
 		RT = np.concatenate([RT[:3, 0:2], np.expand_dims(RT[:3, 3], axis=1)], axis=1)
-		print('Intrinsic \n', RT)
+		# print('Intrinsic \n', RT)
 
 		# Transforming Intrinsics
 		R = np.array([[0, 1, 0],
@@ -92,18 +92,16 @@ class LaneDetection:
 		RT = R @ RT
 
 		P = K @ RT
-		print('\nProjection\n', P)
+		# print('\nProjection\n', P)
 
 		H_ipmnorm2g = homography_ipmnorm2g(top_view_region)
 		H_ipmnorm2im = P @ H_ipmnorm2g
-		print(H_ipmnorm2im)
 
 		S_im_inv = np.float32([[1/np.float32(width), 0, 0],
 							[0, 1/np.float32(height), 0],
 							[0, 0, 1]])
 
 		M_ipm2im_norm = S_im_inv @ H_ipmnorm2im
-		print(M_ipm2im_norm)
 
 		# Visulization
 		M = torch.zeros((1, 3, 3))
@@ -140,7 +138,7 @@ class LaneDetection:
 				indic = indicate[idx]
 				if indic == 0:
 					continue
-				bev_image[i, j] = img[y, x]
+				bev_image[i, j] = front_view_image[y, x]
 		
 		return bev_image 
 
@@ -158,9 +156,12 @@ class LaneDetection:
 			gray_state_image 68x96x1
 
 		'''
-		cut_img = state_image_full[:68, :, :]
+		# state_image_full = state_image_full[:, :, [2, 1, 0]]
+		# cv2.imshow('main img', state_image_full)
+
+		cut_img = state_image_full[:self.cut_size, :, :]
 		gray_state_image = cv2.cvtColor(cut_img, cv2.COLOR_BGR2GRAY)
-		
+
 		return gray_state_image[::-1] 
 
 
@@ -179,19 +180,19 @@ class LaneDetection:
 			gradient_sum 68x96x1
 
 		'''
+		# cv2.namedWindow("gray", cv2.WINDOW_NORMAL)
+		# cv2.imshow('gray', gray_image)
 		kernelx = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
 		kernely = np.array([[1, 2, 1],[0, 0, 0],[-1,-2,-1]])
 
-		img_x = cv2.filter2D(gray_image, -1, kernelx)
-		img_y = cv2.filter2D(gray_image, -1, kernely)
-
+		img_x = cv2.filter2D(gray_image, ddepth = cv2.CV_16S, kernel = kernelx)
+		img_y = cv2.filter2D(gray_image, ddepth = cv2.CV_16S, kernel = kernely)
+		
 		gradient_sum = np.hypot(img_x,img_y)
+		gradient_sum = (gradient_sum/gradient_sum.max())*255
 
 		gradient_sum[gradient_sum < self.gradient_threshold] = 0
 
-		# gradient_sum = cv2.Canny(gray_image, 0, 255)
-
-		cv2.imshow('IMG', np.uint8(gradient_sum))
 		return gradient_sum
 
 
@@ -220,8 +221,7 @@ class LaneDetection:
 			argmaxima.append(maxima)
 		# Convert the list to a numpy array
 		argmaxima = np.array(argmaxima)
-		# Return the arguments of local maxima
-		# print(argmaxima)
+
 		return argmaxima
 
 
@@ -335,16 +335,17 @@ class LaneDetection:
 			i=1
 			while len(maxima)>1:
 				maxima = maxima[1:]
+				if len(maxima[0]) == 0:
+					continue
 				maximum = np.expand_dims(maxima[0], axis=1)
 				maximum = np.concatenate([maximum, i*np.ones(maximum.shape)], axis=1)
-				print('Peak Points\n', maximum)
+				# print('Peak Points\n', maximum)
 
 				# get distances of maximums wrt lane1 points and lane2 points
 				dist_lane_1 = np.linalg.norm(maximum - lane_boundary1_points[-1], axis=1)
 				dist_lane_2 = np.linalg.norm(maximum - lane_boundary2_points[-1], axis=1)
-				print('\nDistance from lane 1\n', dist_lane_1)
-				print('\nDistance form lane 2\n', dist_lane_2)
-
+				# print('\nDistance from lane 1\n', dist_lane_1)
+				# print('\nDistance form lane 2\n', dist_lane_2)
 				closest_point_lane_1 = np.argsort(dist_lane_1)[0]
 				closest_point_lane_2 = np.argsort(dist_lane_2)[0]
 
@@ -363,30 +364,12 @@ class LaneDetection:
 				lane_boundary2_points = np.concatenate([lane_boundary2_points, [next_pt_lane2]], axis=0)
 				i += 1
 
-			'''
-			Temporary Fix
-			works only on straight road
-			'''
-			# i=1
-			# while gradient_sum.shape[0]>1:
-			# 	gradient_sum = gradient_sum[1:, :]
-			# 	# print(gradient_sum.shape)
-			# 	lane1, lane2, lane_found = self.find_first_lane_point(gradient_sum)
-			# 	lane1[0][1], lane2[0][1] = i, i
-				
-			# 	lane_boundary1_points = np.concatenate([lane_boundary1_points, lane1], axis=0)
-			# 	lane_boundary2_points = np.concatenate([lane_boundary2_points, lane2], axis=0)
-			# 	i += 1
-			################
-			
-
 			##### TODO #####
 			# spline fitting using scipy.interpolate.splprep 
 			# and the arguments self.spline_smoothness
 			# 
 			# if there are more lane_boundary points points than spline parameters 
 			# else use perceding spline
-			print(lane_boundary1_points.shape)
 			if lane_boundary1_points.shape[0] > 4 and lane_boundary2_points.shape[0] > 4:
 
 				# Pay attention: the first lane_boundary point might occur twice

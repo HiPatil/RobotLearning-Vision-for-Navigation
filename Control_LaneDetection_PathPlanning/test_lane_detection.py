@@ -28,7 +28,7 @@ def key_release(k, mod):
 
 # init environement
 env = CarRacing()
-env.render()
+env.render(mode='rgb_array')
 env.viewer.window.on_key_press = key_press
 env.viewer.window.on_key_release = key_release
 env.reset()
@@ -48,10 +48,15 @@ plt.show()
 
 while True:
     # perform step
-    s, r, done, speed, info = env.step(a)
+    s, r, done, info = env.step(a)
 
+    speed = np.sqrt(
+                np.square(env.car.hull.linearVelocity[0])
+                + np.square(env.car.hull.linearVelocity[1])
+            )
     # lane detection
-    splines = LD_module.lane_detection(s)
+    if not steps<100:
+        splines = LD_module.lane_detection(s)
     
     # reward
     total_reward += r
@@ -60,9 +65,10 @@ while True:
     if steps % 2 == 0 or done:
         print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
         print("step {} total_reward {:+0.2f}".format(steps, total_reward))
-        LD_module.plot_state_lane(s, steps, fig)
+        if not steps<100:
+            LD_module.plot_state_lane(s, steps, fig)
     steps += 1
-    env.render()
+    env.render(mode='rgb_array')
     
     if done or restart: break
 
