@@ -35,6 +35,8 @@ class LateralController:
             speed (float)
         '''
         # derive orientation error as the angle of the first path segment to the car orientation
+        print(waypoints)
+        exit(0)
 
         # derive cross track error as distance between desired waypoint at spline parameter equal zero ot the car position
 
@@ -43,7 +45,7 @@ class LateralController:
 
         # derive damping term
         
-        steering_angle =
+        # steering_angle =
         # clip to the maximum stering angle (0.4) and rescale the steering action space
         return np.clip(steering_angle, -0.4, 0.4) / 0.4
 

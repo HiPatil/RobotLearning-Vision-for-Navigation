@@ -33,33 +33,36 @@ plt.ion()
 plt.show()
 
 while True:
-    # perform step
-    s, r, done, speed, info = env.step(a)
+	# perform step
+	s, r, done, info = env.step(a)
+	speed = np.sqrt(
+			np.square(env.car.hull.linearVelocity[0])
+			+ np.square(env.car.hull.linearVelocity[1])
+		)
+	# lane detection
+	lane1, lane2 = LD_module.lane_detection(s)
 
-    # lane detection
-    lane1, lane2 = LD_module.lane_detection(s)
+	# waypoint and target_speed prediction
+	waypoints = waypoint_prediction(lane1, lane2)
+	target_speed = target_speed_prediction(waypoints)
 
-    # waypoint and target_speed prediction
-    waypoints = waypoint_prediction(lane1, lane2)
-    target_speed = target_speed_prediction(waypoints)
+	# control with constant gas and no braking
+	a[0] = LatC_module.stanley(waypoints, speed)
 
-    # control with constant gas and no braking
-    a[0] = LatC_module.stanley(waypoints, speed)
+	# reward
+	total_reward += r
 
-    # reward
-    total_reward += r
+	# outputs during training
+	if steps % 2 == 0 or done:
+		print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
+		print("targetspeed {:+0.2f}".format(target_speed))
+		LD_module.plot_state_lane(s, steps, fig, waypoints=waypoints)
 
-    # outputs during training
-    if steps % 2 == 0 or done:
-        print("\naction " + str(["{:+0.2f}".format(x) for x in a]))
-        print("targetspeed {:+0.2f}".format(target_speed))
-        LD_module.plot_state_lane(s, steps, fig, waypoints=waypoints)
+	steps += 1
+	env.render()
 
-    steps += 1
-    env.render()
-
-    # check if stop
-    if done or restart or steps>=600: 
-        print("step {} total_reward {:+0.2f}".format(steps, total_reward))
-        break
+	# check if stop
+	if done or restart or steps>=600: 
+		print("step {} total_reward {:+0.2f}".format(steps, total_reward))
+		break
 env.close()
