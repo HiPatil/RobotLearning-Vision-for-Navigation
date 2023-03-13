@@ -36,7 +36,11 @@ plt.show()
 
 while True:
     # perform step
-    s, r, done, speed, info = env.step(a)
+    s, r, done, info = env.step(a)
+    speed = np.sqrt(
+			np.square(env.car.hull.linearVelocity[0])
+			+ np.square(env.car.hull.linearVelocity[1])
+		)
 
     # lane detection
     lane1, lane2 = LD_module.lane_detection(s)

@@ -13,7 +13,7 @@ class LongitudinalController:
         PID_step()
         control()
     '''
-    def __init__(self, KP=0.01, KI=0.0, KD=0.0):
+    def __init__(self, KP=0.01, KI=0.01, KD=0.01):
         self.last_error = 0
         self.sum_error = 0
         self.last_control = 0
@@ -42,8 +42,18 @@ class LongitudinalController:
         '''
         
         # define error from set point target_speed to speed 
-
+        e_t = target_speed - speed
+        self.sum_error += e_t
+        print(self.sum_error)
         # derive PID elements
+        P = self.KP * e_t
+        I = self.KI * min(4, self.sum_error)
+        D = self.KD * (e_t - self.last_error)
+        
+        control =  P + I + D
+        self.last_control = control
+        self.last_error = e_t
+        self.sum_error = np.clip(self.sum_error, -1, 1)
 
         return control
 
@@ -60,8 +70,9 @@ class LongitudinalController:
             gas
             brake
         '''
-
+        
         control = self.PID_step(speed, target_speed)
+        
         brake = 0
         gas = 0
 
