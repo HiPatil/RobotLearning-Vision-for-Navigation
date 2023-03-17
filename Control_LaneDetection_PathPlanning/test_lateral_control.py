@@ -43,11 +43,11 @@ while True:
 	lane1, lane2 = LD_module.lane_detection(s)
 
 	# waypoint and target_speed prediction
-	waypoints = waypoint_prediction(lane1, lane2)
+	waypoints = waypoint_prediction(lane1, lane2, way_type='center')
 	target_speed = target_speed_prediction(waypoints)
 
 	# control with constant gas and no braking
-	a[0] = LatC_module.stanley(waypoints, speed)
+	a[0] = LatC_module.stanley(waypoints, target_speed)
 	# print(a[0])
 
 	# reward
@@ -63,7 +63,7 @@ while True:
 	env.render()
 
 	# check if stop
-	if done or restart: #or steps>=600: 
+	if done or restart: # or steps>=600: 
 		print("step {} total_reward {:+0.2f}".format(steps, total_reward))
 		break
 env.close()

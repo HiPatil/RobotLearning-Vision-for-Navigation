@@ -13,7 +13,7 @@ class LongitudinalController:
         PID_step()
         control()
     '''
-    def __init__(self, KP=0.01, KI=0.01, KD=0.01):
+    def __init__(self, KP=0.1, KI=0.0, KD=0.0):
         self.last_error = 0
         self.sum_error = 0
         self.last_control = 0
@@ -53,7 +53,7 @@ class LongitudinalController:
         control =  P + I + D
         self.last_control = control
         self.last_error = e_t
-        self.sum_error = np.clip(self.sum_error, -1, 1)
+        self.sum_error = np.clip(self.sum_error, -10, 10)
 
         return control
 

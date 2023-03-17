@@ -19,7 +19,7 @@ class LateralController:
     '''
 
 
-    def __init__(self, gain_constant=5, damping_constant=0.4):
+    def __init__(self, gain_constant=5, damping_constant=0.6):
 
         self.gain_constant = gain_constant
         self.damping_constant = damping_constant
@@ -35,15 +35,15 @@ class LateralController:
         '''
         # derive orientation error as the angle of the first path segment to the car orientation
         waypoints = waypoints.T
-        waypt_dir = waypoints[1] - waypoints[0]
+        waypt_dir = waypoints[2] - waypoints[0]
         cos_psi = np.dot(waypt_dir, [0, 1])/np.linalg.norm(waypt_dir)
         psi = np.arccos(cos_psi)
         # psi = 0
         # print(psi)
 
         # derive cross track error as distance between desired waypoint at spline parameter equal zero to the car position
-        dt1 = waypoints[1, 0] - waypoints[0, 0]
-        # dt2 = np.linalg.norm(waypt_dir_2*np.cos(psi+1.571))
+        # dt1 = (-self.gain_constant*self.previous_dt)/(np.sqrt(1+(self.gain_constant*self.previous_dt/speed)**2))
+        dt1 = waypoints[1, 0] - 48.0
 
         # derive stanley control law
         delta_sc_t2 = psi + np.arctan(self.gain_constant*dt1/speed)
