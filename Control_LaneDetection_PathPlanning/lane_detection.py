@@ -33,14 +33,16 @@ class LaneDetection:
 
     '''
 
-    def __init__(self, cut_size=68, spline_smoothness=10, gradient_threshold=30, distance_maxima_gradient=3):
-        self.car_position = np.array([48,0])
+    def __init__(self, cut_size=145, spline_smoothness=10, gradient_threshold=30, distance_maxima_gradient=3):
+        self.img_shape = (200, 200, 3)
+        self.car_position = np.array([self.img_shape[0]/2,0])
         self.spline_smoothness = spline_smoothness
         self.cut_size = cut_size
         self.gradient_threshold = gradient_threshold
         self.distance_maxima_gradient = distance_maxima_gradient
         self.lane_boundary1_old = 0
         self.lane_boundary2_old = 0
+        
     
 
     def front2bev(self, front_view_image):
@@ -63,8 +65,6 @@ class LaneDetection:
         H, W = 200, 200
         top_view_region = np.float32([[50, -25], [50, 25], [0, 25], [0, -25]])
 
-        # front_view_image = cv2.imread('00027126.jpg')
-        # print(front_view_image.shape)
         # camera intrinsic
         camera_xyz = [-5.5, 0, 2.5]
         cam_yaw, cam_pitch, cam_roll = 0.0, 8.0, 0.0
@@ -79,11 +79,9 @@ class LaneDetection:
         K[0,0] = K[1,1] = focal
         K[0, 2] = width / 2.0
         K[1, 2] = height / 2.0
-        # print('\nExtrinsic: \n', K)
 
         RT = np.array(carla.Transform(carla.Location(*camera_xyz), carla.Rotation(yaw=cam_yaw, pitch=cam_pitch, roll=cam_roll)).get_matrix())
         RT = np.concatenate([RT[:3, 0:2], np.expand_dims(RT[:3, 3], axis=1)], axis=1)
-        # print('Intrinsic \n', RT)
 
         # Transforming Intrinsics
         R = np.array([[0, 1, 0],
@@ -91,8 +89,8 @@ class LaneDetection:
                     [1, 0, 0]])
         RT = R @ RT
 
+        # Projection matrix
         P = K @ RT
-        # print('\nProjection\n', P)
 
         H_ipmnorm2g = homography_ipmnorm2g(top_view_region)
         H_ipmnorm2im = P @ H_ipmnorm2g
@@ -170,7 +168,7 @@ class LaneDetection:
         crop_img = state_image_full[:self.cut_size, :, :]
         gray_state_image = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
 
-        gray_state_image = adjust_gamma(gray_state_image, 0.2)
+        # gray_state_image = adjust_gamma(gray_state_image, 0.5)
 
 
         return gray_state_image[::-1] 
@@ -225,7 +223,6 @@ class LaneDetection:
             argmaxima.append(maxima)
         # Convert the list to a numpy array
         argmaxima = np.array(argmaxima)
-
         return argmaxima
 
 
@@ -253,15 +250,15 @@ class LaneDetection:
             
             # Find peaks with min distance of at least 3 pixel 
             argmaxima = find_peaks(gradient_sum[row],distance=3)[0]
-            # print(argmaxima)
+
             # if one lane_boundary is found
             if argmaxima.shape[0] == 1:
                 lane_boundary1_startpoint = np.array([[argmaxima[0],  row]])
 
-                if argmaxima[0] < 48:
+                if argmaxima[0] < self.img_shape[0]/2:
                     lane_boundary2_startpoint = np.array([[0,  row]])
                 else: 
-                    lane_boundary2_startpoint = np.array([[96,  row]])
+                    lane_boundary2_startpoint = np.array([[self.img_shape[0],  row]])
 
                 lanes_found = True
             
@@ -283,10 +280,10 @@ class LaneDetection:
                 Top 2 are the lanes
                 '''
                 A = np.argsort((argmaxima - self.car_position[0])**2)
-                
-                lane_boundary1_startpoint = np.array([[argmaxima[A[0]],  0]])
-                lane_boundary2_startpoint = np.array([[argmaxima[A[1]],  0]])
-                lanes_found = True
+                if (abs(argmaxima[A[0]]-self.car_position[0]) < 15) and (abs(argmaxima[A[1]]-self.car_position[0]) < 15):
+                    lane_boundary1_startpoint = np.array([[argmaxima[A[0]],  0]])
+                    lane_boundary2_startpoint = np.array([[argmaxima[A[1]],  0]])
+                    lanes_found = True
 
             row += 1
             
@@ -320,30 +317,21 @@ class LaneDetection:
         
         # edge detection via gradient sum and thresholding
         gradient_sum = self.edge_detection(gray_state)
-        # gradient_sum = self.edge_np(gray_state)
 
         # cv2.imshow("edge", gradient_sum)
-        
         maxima = self.find_maxima_gradient_rowwise(gradient_sum)
-        # print(maxima)
 
         # first lane_boundary points
         lane_boundary1_points, lane_boundary2_points, lane_found = self.find_first_lane_point(gradient_sum)
 
-        # if no lane was found,use lane_boundaries of the preceding step
         if lane_found:
-            
             ##### TODO #####
             #  in every iteration: 
             # 1- find maximum/edge with the lowest distance to the last lane boundary point 
             # 2- append maxium to lane_boundary1_points or lane_boundary2_points
             # 3- delete maximum from maxima
             # 4- stop loop if there is no maximum left 
-            #    or if the distance to the next one is too big (>=100)
-
-            # lane_boundary 1			
-            # lane_boundary 2
-
+            #    or if the distance to the next one is too big (>=100)    
             i=1
             while len(maxima)>1:
                 maxima = maxima[1:]
@@ -351,13 +339,10 @@ class LaneDetection:
                     continue
                 maximum = np.expand_dims(maxima[0], axis=1)
                 maximum = np.concatenate([maximum, i*np.ones(maximum.shape)], axis=1)
-                # print('Peak Points\n', maximum)
 
                 # get distances of maximums wrt lane1 points and lane2 points
                 dist_lane_1 = np.linalg.norm(maximum - lane_boundary1_points[-1], axis=1)
                 dist_lane_2 = np.linalg.norm(maximum - lane_boundary2_points[-1], axis=1)
-                # print('\nDistance from lane 1\n', dist_lane_1)
-                # print('\nDistance form lane 2\n', dist_lane_2)
                 closest_point_lane_1 = np.argsort(dist_lane_1)[0]
                 closest_point_lane_2 = np.argsort(dist_lane_2)[0]
 
@@ -375,6 +360,7 @@ class LaneDetection:
                 lane_boundary1_points = np.concatenate([lane_boundary1_points, [next_pt_lane1]], axis=0)
                 lane_boundary2_points = np.concatenate([lane_boundary2_points, [next_pt_lane2]], axis=0)
                 i += 1
+
 
             ##### TODO #####
             # spline fitting using scipy.interpolate.splprep 
@@ -420,14 +406,14 @@ class LaneDetection:
         
         plt.gcf().clear()
         plt.imshow(state_image_full[::-1])
-        plt.plot(lane_boundary1_points_points[0], lane_boundary1_points_points[1]+96-self.cut_size, linewidth=2, color='red')
-        plt.plot(lane_boundary2_points_points[0], lane_boundary2_points_points[1]+96-self.cut_size, linewidth=2, color='red')
+        plt.plot(lane_boundary1_points_points[0], lane_boundary1_points_points[1]+self.img_shape[0]-self.cut_size, linewidth=2, color='red')
+        plt.plot(lane_boundary2_points_points[0], lane_boundary2_points_points[1]+self.img_shape[0]-self.cut_size, linewidth=2, color='red')
         if len(waypoints):
-            plt.scatter(waypoints[0], waypoints[1]+96-self.cut_size, color='white')
+            plt.scatter(waypoints[0], waypoints[1]+self.img_shape[0]-self.cut_size, color='white')
 
         plt.axis('off')
-        plt.xlim((-0.5,95.5))
-        plt.ylim((-0.5,95.5))
+        plt.xlim((-0.5,199.5))
+        plt.ylim((-0.5,199.5))
         plt.gca().axes.get_xaxis().set_visible(False)
         plt.gca().axes.get_yaxis().set_visible(False)
         fig.canvas.flush_events()

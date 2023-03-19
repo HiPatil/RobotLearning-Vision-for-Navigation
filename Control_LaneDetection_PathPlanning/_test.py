@@ -1,49 +1,42 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import time
 
 
 from lane_detection import LaneDetection
+from lateral_control import LateralController
 
-cv2.namedWindow("IMG", cv2.WINDOW_NORMAL)
+from waypoint_prediction import waypoint_prediction, target_speed_prediction
 
 
 # # Read BEV image
-img = cv2.imread('output.jpg')
-# cv2.imshow('img', np.uint8(img))
+bev = cv2.imread('output/006903_bev.jpg')
+# cv2.namedWindow("bev", cv2.WINDOW_NORMAL)    # Create window with freedom of dimensions
 
-# resize image, if not in shape (96, 96)
-if img.shape != (96, 96):
-    print('Resizing')
-    img = cv2.resize(img, (96, 96))
-
-# img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-# # Crop out the car in BEV image
-# img = img[:68, :]
-
-# print(img.shape)
-# cv2.imshow('IMG', np.uint8(img))
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
+cv2.imshow('bev', bev)
 LD_module = LaneDetection()
+LatC_module = LateralController()
 
-# gray_img = LD_module.cut_gray(img)
-# # cv2.imshow('gray', np.uint8(gray_img))
+# bev = cv2.resize(bev, (96, 96))
+print(bev.shape)
 
-# gradient_sum = LD_module.edge_detection(gray_img)
+lane1, lane2 = LD_module.lane_detection(bev)
+# waypoint and target_speed prediction
 
-# something = LD_module.find_maxima_gradient_rowwise(gradient_sum)
+waypoints = waypoint_prediction(lane1, lane2, num_waypoints=6, way_type='center')
+target_speed = target_speed_prediction(waypoints)
 
-out = LD_module.lane_detection(img)
+steer = LatC_module.stanley(waypoints, target_speed)
+
 
 # init extra plot
 fig = plt.figure()
 plt.ion()
 plt.show()
 
-LD_module.plot_state_lane(img, 0, fig)
+LD_module.plot_state_lane(bev, 0, fig, waypoints=waypoints)
 
-# cv2.imshow('IMG', np.uint8(gray_img))
+# # cv2.imshow('IMG', np.uint8(gray_img))
 cv2.waitKey(0)
 cv2.destroyAllWindows()

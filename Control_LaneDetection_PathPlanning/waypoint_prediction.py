@@ -117,9 +117,9 @@ def target_speed_prediction(waypoints, num_waypoints_used=5,
 		target_speed (float)
 	'''
 	# Initial Parameters
-	curv = curvature(waypoints)
+	curv = curvature(waypoints[:, :num_waypoints_used])
 
-	exp_term = np.exp(-exp_constant*np.abs(waypoints.shape[1] - 2 - curv))
-	target_speed = (max_speed-offset_speed)*exp_term + offset_speed
+	exp_term = np.exp(-exp_constant*np.abs(num_waypoints_used - 2 - curv))
+	target_speed = (max_speed - offset_speed)* exp_term + offset_speed
 
 	return target_speed

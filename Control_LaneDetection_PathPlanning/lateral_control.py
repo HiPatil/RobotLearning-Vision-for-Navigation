@@ -19,7 +19,7 @@ class LateralController:
     '''
 
 
-    def __init__(self, gain_constant=5, damping_constant=0.6):
+    def __init__(self, gain_constant=5, damping_constant=0.8):
 
         self.gain_constant = gain_constant
         self.damping_constant = damping_constant
@@ -34,27 +34,39 @@ class LateralController:
             speed (float)
         '''
         # derive orientation error as the angle of the first path segment to the car orientation
-        waypoints = waypoints.T
-        waypt_dir = waypoints[2] - waypoints[0]
-        cos_psi = np.dot(waypt_dir, [0, 1])/np.linalg.norm(waypt_dir)
-        psi = np.arccos(cos_psi)
-        # psi = 0
-        # print(psi)
+        x_dir = waypoints[0, 1] - waypoints[0, 0]
+        y_dir = waypoints[1, 1] - waypoints[1, 0]
+        psi = np.arctan2(x_dir, y_dir)
+        # print('PSI \t', psi)
 
         # derive cross track error as distance between desired waypoint at spline parameter equal zero to the car position
         # dt1 = (-self.gain_constant*self.previous_dt)/(np.sqrt(1+(self.gain_constant*self.previous_dt/speed)**2))
-        dt1 = waypoints[1, 0] - 48.0
-
-        # derive stanley control law
-        delta_sc_t2 = psi + np.arctan(self.gain_constant*dt1/speed)
-
+        x_t = waypoints[0, 0] - 100.0
+        # print('XT \t', x_t)
         # prevent division by zero by adding as small epsilon
-
+        eps = 1e-9
+        # derive stanley control law
+        delta = psi + np.arctan(self.gain_constant * x_t/ (speed+eps))
+        # print('Angle \t', delta)
         # derive damping term
-        steering_angle = delta_sc_t2 - self.damping_constant * (delta_sc_t2 - self.previous_steering_angle)
-        # self.previous_steering_angle = steering_angle
-        # clip to the maximum stering angle (0.4) and rescale the steering action space
-        return np.clip(steering_angle, -0.4, 0.4) / 0.4
+        damping = self.damping_constant * (delta - self.previous_steering_angle)
+        
+        # a =0
+        # b=0
+        # if delta <0 :
+        #     a = delta
+        #     b = -1 * delta
+        # else :
+        #     a = -1 * delta
+        #     b = delta
+        
+        # damping = np.clip(damping, a - 0.1* delta, b + 0.1*delta)
+        steering_angle = delta - damping
+        steering_angle = np.clip(steering_angle, -0.4, 0.4) 
+        # print('DAngle \t', steering_angle)
+        self.previous_steering_angle = steering_angle
+
+        return steering_angle
 
 
 
