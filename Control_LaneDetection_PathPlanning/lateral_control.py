@@ -19,7 +19,7 @@ class LateralController:
     '''
 
 
-    def __init__(self, gain_constant=5, damping_constant=0.8):
+    def __init__(self, gain_constant=1, damping_constant=0.8):
 
         self.gain_constant = gain_constant
         self.damping_constant = damping_constant
@@ -62,7 +62,7 @@ class LateralController:
         
         # damping = np.clip(damping, a - 0.1* delta, b + 0.1*delta)
         steering_angle = delta - damping
-        steering_angle = np.clip(steering_angle, -0.4, 0.4) 
+        steering_angle = np.clip(steering_angle, -0.4, 0.4)
         # print('DAngle \t', steering_angle)
         self.previous_steering_angle = steering_angle
 

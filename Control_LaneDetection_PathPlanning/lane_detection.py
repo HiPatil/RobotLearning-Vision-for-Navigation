@@ -33,7 +33,7 @@ class LaneDetection:
 
     '''
 
-    def __init__(self, cut_size=145, spline_smoothness=10, gradient_threshold=30, distance_maxima_gradient=3):
+    def __init__(self, cut_size=145, spline_smoothness=10, gradient_threshold=25, distance_maxima_gradient=5):
         self.img_shape = (200, 200, 3)
         self.car_position = np.array([self.img_shape[0]/2,0])
         self.spline_smoothness = spline_smoothness
@@ -168,8 +168,7 @@ class LaneDetection:
         crop_img = state_image_full[:self.cut_size, :, :]
         gray_state_image = cv2.cvtColor(crop_img, cv2.COLOR_BGR2GRAY)
 
-        # gray_state_image = adjust_gamma(gray_state_image, 0.5)
-
+        gray_state_image = adjust_gamma(gray_state_image, 0.5)
 
         return gray_state_image[::-1] 
 
@@ -192,9 +191,11 @@ class LaneDetection:
         gradient_x= cv2.Sobel(gray_image, cv2.CV_8U, 1, 0, ksize=3)
         gradient_y = cv2.Sobel(gray_image, cv2.CV_8U, 0, 1, ksize=3)
 
-        gradient_x[gradient_x < self.gradient_threshold] = 0
-        gradient_y[gradient_y < self.gradient_threshold] = 0
+        # gradient_x[gradient_x < self.gradient_threshold] = 0
+        # gradient_y[gradient_y < self.gradient_threshold] = 0
         gradient_sum = np.hypot(gradient_x, gradient_y)
+        gradient_sum[gradient_sum < self.gradient_threshold] = 0
+        # plt.imshow(gradient_sum, cmap='gray', vmin=0, vmax=255)
 
         return np.uint8(gradient_sum)
 
@@ -218,7 +219,7 @@ class LaneDetection:
         # Loop over each row of the gradient image
         for i in range(num_rows):
             # Find the local maxima in the current row
-            maxima, _ = find_peaks(gradient_sum[i], distance=3)
+            maxima, _ = find_peaks(gradient_sum[i], distance=self.distance_maxima_gradient)
             # Append the arguments of local maxima to the list
             argmaxima.append(maxima)
         # Convert the list to a numpy array
@@ -249,7 +250,7 @@ class LaneDetection:
         while not lanes_found:
             
             # Find peaks with min distance of at least 3 pixel 
-            argmaxima = find_peaks(gradient_sum[row],distance=3)[0]
+            argmaxima = find_peaks(gradient_sum[row],distance=self.distance_maxima_gradient)[0]
 
             # if one lane_boundary is found
             if argmaxima.shape[0] == 1:
@@ -345,6 +346,9 @@ class LaneDetection:
                 dist_lane_2 = np.linalg.norm(maximum - lane_boundary2_points[-1], axis=1)
                 closest_point_lane_1 = np.argsort(dist_lane_1)[0]
                 closest_point_lane_2 = np.argsort(dist_lane_2)[0]
+                # if closest_point_lane_1 == closest_point_lane_2:
+                #     closest_point_lane_2 = np.argsort(dist_lane_2)[1]
+
 
                 if dist_lane_1[closest_point_lane_1] >= 5:
                     next_pt_lane1 = [lane_boundary1_points[-1][0], i]
@@ -395,7 +399,7 @@ class LaneDetection:
         return lane_boundary1, lane_boundary2
 
 
-    def plot_state_lane(self, state_image_full, steps, fig, waypoints=[]):
+    def plot_state_lane(self, state_image_full, fig, waypoints=[]):
         '''
         Plot lanes and way points
         '''
