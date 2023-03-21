@@ -21,6 +21,10 @@ except IndexError:
 
 import carla
 
+# import some detection utilities
+from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
+from torchvision.utils import draw_bounding_boxes
+
 class LaneDetection:
     '''
     Lane detection module using edge detection and b-spline fitting
@@ -33,7 +37,7 @@ class LaneDetection:
 
     '''
 
-    def __init__(self, cut_size=145, spline_smoothness=10, gradient_threshold=25, distance_maxima_gradient=5):
+    def __init__(self, cut_size=145, spline_smoothness=10, gradient_threshold=30, distance_maxima_gradient=5):
         self.img_shape = (200, 200, 3)
         self.car_position = np.array([self.img_shape[0]/2,0])
         self.spline_smoothness = spline_smoothness
@@ -43,7 +47,29 @@ class LaneDetection:
         self.lane_boundary1_old = 0
         self.lane_boundary2_old = 0
         
-    
+    def object_detection(self, front_view_image):
+        front_view_image = torch.from_numpy(np.uint8(front_view_image))
+        front_view_image = torch.permute(front_view_image, (2, 0, 1))
+        # Step 1: Initialize model with the best available weights
+        weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
+        model = fasterrcnn_resnet50_fpn_v2(weights=weights, box_score_thresh=0.9)
+        model.eval()
+
+        # Step 2: Initialize the inference transforms
+        preprocess = weights.transforms()
+
+        # Step 3: Apply inference preprocessing transforms
+        batch = [preprocess(front_view_image)]
+
+        # Step 4: Use the model and visualize the prediction
+        prediction = model(batch)[0]
+        labels = [weights.meta["categories"][i] for i in prediction["labels"]]
+        box = draw_bounding_boxes(front_view_image, boxes=prediction["boxes"],
+                                labels=labels,
+                                colors="red",
+                                width=4, font_size=30)
+        box = torch.permute(box, (1, 2, 0))
+        return box.cpu().detach().numpy()
 
     def front2bev(self, front_view_image):
         '''
@@ -281,10 +307,10 @@ class LaneDetection:
                 Top 2 are the lanes
                 '''
                 A = np.argsort((argmaxima - self.car_position[0])**2)
-                if (abs(argmaxima[A[0]]-self.car_position[0]) < 15) and (abs(argmaxima[A[1]]-self.car_position[0]) < 15):
-                    lane_boundary1_startpoint = np.array([[argmaxima[A[0]],  0]])
-                    lane_boundary2_startpoint = np.array([[argmaxima[A[1]],  0]])
-                    lanes_found = True
+                # if (abs(argmaxima[A[0]]-self.car_position[0]) < 15) and (abs(argmaxima[A[1]]-self.car_position[0]) < 15):
+                lane_boundary1_startpoint = np.array([[argmaxima[A[0]],  0]])
+                lane_boundary2_startpoint = np.array([[argmaxima[A[1]],  0]])
+                lanes_found = True
 
             row += 1
             
@@ -313,11 +339,12 @@ class LaneDetection:
 
         # to gray
         gray_state = self.cut_gray(state_image_full)
-        # cv2.imshow("gray_state", gray_state)
+        cv2.imwrite("final_imgs/gray_bev.png", gray_state)
         
         
         # edge detection via gradient sum and thresholding
         gradient_sum = self.edge_detection(gray_state)
+        cv2.imwrite("final_imgs/edge_bev.png", gradient_sum)
 
         # cv2.imshow("edge", gradient_sum)
         maxima = self.find_maxima_gradient_rowwise(gradient_sum)

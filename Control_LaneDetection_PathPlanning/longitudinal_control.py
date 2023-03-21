@@ -44,7 +44,6 @@ class LongitudinalController:
         # define error from set point target_speed to speed 
         e_t = target_speed - speed
         self.sum_error += e_t
-        print(self.sum_error)
         # derive PID elements
         P = self.KP * e_t
         I = self.KI * min(4, self.sum_error)
