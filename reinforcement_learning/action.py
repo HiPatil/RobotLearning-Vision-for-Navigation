@@ -19,6 +19,9 @@ def select_greedy_action(state, policy_net, action_size):
     """
 
     # TODO: Select greedy action
+    state = torch.FloatTensor(state).permute(0, 3, 1, 2).cuda()
+    q_values = policy_net(state)
+    return torch.argmax(q_values).item()
 
 def select_exploratory_action(state, policy_net, action_size, exploration, t):
     """ Select an action according to an epsilon-greedy exploration strategy
@@ -41,6 +44,12 @@ def select_exploratory_action(state, policy_net, action_size, exploration, t):
     """
 
     # TODO: Select exploratory action
+    if random.random() < exploration.value(t):
+        return random.randrange(action_size)
+    else:
+        state = torch.FloatTensor(state).permute(0, 3, 1, 2).cuda()
+        q_values = policy_net(state)
+        return torch.argmax(q_values).item()
 
 def get_action_set():
     """ Get the list of available actions

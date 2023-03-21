@@ -161,6 +161,7 @@ def learn(env,
         if t > learning_starts and t % target_network_update_freq == 0:
             # Update target network periodically.
             update_target_net(policy_net, target_net)
+            torch.save(policy_net.state_dict(), model_identifier+'.pt')
 
     # Save the trained policy network
     torch.save(policy_net.state_dict(), model_identifier+'.pt')

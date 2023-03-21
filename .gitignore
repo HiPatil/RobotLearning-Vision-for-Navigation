@@ -6,3 +6,4 @@ imitation_learning/model*
 __pycache__/
 *.zip
 .ipynb_checkpoints/
+sdc_gym/
