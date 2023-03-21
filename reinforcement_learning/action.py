@@ -44,7 +44,7 @@ def select_exploratory_action(state, policy_net, action_size, exploration, t):
     """
 
     # TODO: Select exploratory action
-    if random.random() < exploration.value(t):
+    if random.uniform(0, 1) < exploration.value(t):
         return random.randrange(action_size)
     else:
         state = torch.FloatTensor(state).permute(0, 3, 1, 2).cuda()

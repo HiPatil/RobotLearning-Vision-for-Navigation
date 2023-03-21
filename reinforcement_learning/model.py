@@ -23,36 +23,22 @@ class DQN(nn.Module):
         self.resnet = nn.Sequential(*list(self.resnet.children())[:-1])
 
         # # TODO: Create network
-        # self.block1 = nn.Sequential(
-        #     nn.Conv2d(3, 32, kernel_size=3, stride=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(32, 32, kernel_size=3, stride=1),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(kernel_size=2, stride=2),
-        # )
-        # self.block2 = nn.Sequential(
-        #     nn.Conv2d(32, 64, kernel_size=3, stride=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(64, 64, kernel_size=3, stride=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(64, 64, kernel_size=3, stride=1),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(kernel_size=2, stride=2),
-        # )
-        # self.block3 = nn.Sequential(
-        #     nn.Conv2d(64, 128, kernel_size=3, stride=1),
-        #     nn.ReLU(),
-        #     nn.Conv2d(128, 128, kernel_size=3, stride=1),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(kernel_size=2, stride=2),
-        # )
-        self.linear_block = nn.Sequential(
-            # nn.Linear(128*8*8, 4096),
-            # nn.ReLU(),
-            nn.Linear(512, 256),
+        self.block1 = nn.Sequential(
+            nn.Conv2d(3, 32, kernel_size=8, stride=4),
             nn.ReLU(),
+            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, kernel_size=3, stride=1),
+            nn.ReLU(),
+
         )
-        self.q_scores = nn.Linear(256, self.action_size)
+        self.linear_block = nn.Sequential(
+            nn.Linear(64*8*8, 512),
+            nn.ReLU(),
+            # nn.Linear(512, 256),
+            # nn.ReLU(),
+        )
+        self.q_scores = nn.Linear(512, self.action_size)
 
 
     def forward(self, observation):
@@ -69,8 +55,8 @@ class DQN(nn.Module):
 
         # TODO: Forward pass through the network
 
-        x = self.resnet(observation)
-        # x = self.block1(observation)
+        # x = self.resnet(observation)
+        x = self.block1(observation)
         # x = self.block2(x)
         # x = self.block3(x)
         x = x.reshape(x.size(0), -1)

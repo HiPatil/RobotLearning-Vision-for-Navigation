@@ -42,13 +42,12 @@ def perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, bat
     clipping_value = 3
 
     state, action, reward, next_state, done= replay_buffer.sample(batch_size)
+
     state = torch.FloatTensor(state).to(device).permute(0, 3, 1, 2)
     next_state = torch.FloatTensor(next_state).to(device).permute(0, 3, 1, 2)
     action = torch.tensor(action).to(device)
-    reward=torch.tensor(reward).to(device)
+    reward=torch.FloatTensor(reward).to(device)
     done=torch.FloatTensor(done).to(device)
-
-
 
     policy_q_values = policy_net(state)
     target_q_values = target_net(next_state).detach()
@@ -58,12 +57,11 @@ def perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, bat
 
     expected_q = reward + gamma * target_q * (1 - done)
 
-    loss = F.mse_loss(policy_q, target_q)
+    loss = F.mse_loss(policy_q, expected_q)
     optimizer.zero_grad()
     loss.backward()
-    torch.nn.utils.clip_grad_norm_(policy_net.parameters(), clipping_value)
+    # torch.nn.utils.clip_grad_norm_(policy_net.parameters(), clipping_value)
     optimizer.step()
-
 
     return loss.item()
 

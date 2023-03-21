@@ -8,6 +8,9 @@ from replay_buffer import ReplayBuffer
 from schedule import LinearSchedule
 from utils import get_state, visualize_training
 
+from torch.utils.tensorboard import SummaryWriter
+
+
 
 def evaluate(env, load_path='agent.pt'):
     """ Evaluate a trained model and compute your leaderboard scores
@@ -102,6 +105,8 @@ def learn(env,
     model_identifier: string
         identifier of the agent
     """
+    writer = SummaryWriter()
+
     episode_rewards = [0.0]
     training_losses = []
     actions = get_action_set()
@@ -128,6 +133,7 @@ def learn(env,
     # Initialize environment and get first state
     obs = get_state(env.reset())
 
+    best_reward = 0
     # Iterate over the total number of time steps
     for t in range(total_timesteps):
 
@@ -149,6 +155,11 @@ def learn(env,
 
         if done:
             # Start new episode after previous episode has terminated
+            writer.add_scalar("Reward", episode_rewards[-1], t)
+            if best_reward<episode_rewards[-1]:
+                best_reward = episode_rewards[-1]
+                torch.save(policy_net.state_dict(), model_identifier+'_best.pt')
+
             print("timestep: " + str(t) + " \t reward: " + str(episode_rewards[-1]))
             obs = get_state(env.reset())
             episode_rewards.append(0.0)
@@ -156,6 +167,7 @@ def learn(env,
         if t > learning_starts and t % train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
             loss = perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
+            writer.add_scalar("Loss", loss, t)
             training_losses.append(loss)
 
         if t > learning_starts and t % target_network_update_freq == 0:
@@ -163,8 +175,12 @@ def learn(env,
             update_target_net(policy_net, target_net)
             torch.save(policy_net.state_dict(), model_identifier+'.pt')
 
+
+    writer.flush()
     # Save the trained policy network
     torch.save(policy_net.state_dict(), model_identifier+'.pt')
 
     # Visualize the training loss and cumulative reward curves
     visualize_training(episode_rewards, training_losses, model_identifier)
+
+    writer.close()
