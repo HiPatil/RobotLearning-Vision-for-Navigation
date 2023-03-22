@@ -7,6 +7,7 @@ from model import DQN
 from replay_buffer import ReplayBuffer
 from schedule import LinearSchedule
 from utils import get_state, visualize_training
+import cv2
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -105,7 +106,7 @@ def learn(env,
     model_identifier: string
         identifier of the agent
     """
-    writer = SummaryWriter()
+    writer = SummaryWriter('runs/' + model_identifier)
 
     episode_rewards = [0.0]
     training_losses = []
@@ -132,7 +133,6 @@ def learn(env,
 
     # Initialize environment and get first state
     obs = get_state(env.reset())
-
     best_reward = 0
     # Iterate over the total number of time steps
     for t in range(total_timesteps):
@@ -158,7 +158,7 @@ def learn(env,
             writer.add_scalar("Reward", episode_rewards[-1], t)
             if best_reward<episode_rewards[-1]:
                 best_reward = episode_rewards[-1]
-                torch.save(policy_net.state_dict(), model_identifier+'_best.pt')
+                torch.save(policy_net.state_dict(), 'models/'+model_identifier+'_best.pt')
 
             print("timestep: " + str(t) + " \t reward: " + str(episode_rewards[-1]))
             obs = get_state(env.reset())
@@ -173,14 +173,14 @@ def learn(env,
         if t > learning_starts and t % target_network_update_freq == 0:
             # Update target network periodically.
             update_target_net(policy_net, target_net)
-            torch.save(policy_net.state_dict(), model_identifier+'.pt')
+            torch.save(policy_net.state_dict(), 'models/'+model_identifier+'.pt')
 
 
     writer.flush()
     # Save the trained policy network
-    torch.save(policy_net.state_dict(), model_identifier+'.pt')
+    torch.save(policy_net.state_dict(), 'models/'+model_identifier+'.pt')
 
     # Visualize the training loss and cumulative reward curves
-    visualize_training(episode_rewards, training_losses, model_identifier)
+    # visualize_training(episode_rewards, training_losses, model_identifier)
 
     writer.close()

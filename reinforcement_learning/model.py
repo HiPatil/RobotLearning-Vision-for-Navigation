@@ -19,10 +19,8 @@ class DQN(nn.Module):
         self.device = device 
         self.action_size = action_size
 
-        self.resnet = resnet18(weights=ResNet18_Weights.DEFAULT)
-        self.resnet = nn.Sequential(*list(self.resnet.children())[:-1])
 
-        # # TODO: Create network
+        # # # TODO: Create network
         self.block1 = nn.Sequential(
             nn.Conv2d(3, 32, kernel_size=8, stride=4),
             nn.ReLU(),
@@ -54,8 +52,7 @@ class DQN(nn.Module):
         """
 
         # TODO: Forward pass through the network
-
-        # x = self.resnet(observation)
+        # observation = observation/255.0
         x = self.block1(observation)
         # x = self.block2(x)
         # x = self.block3(x)
