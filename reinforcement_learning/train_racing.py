@@ -7,7 +7,7 @@ def main():
     Train a Deep Q-Learning agent 
     """ 
     env = gym.make("CarRacing-v0")
-    deepq.learn(env, model_identifier='agent_smallModel_ddqn')
+    deepq.learn(env, model_identifier='agent_SmallModel_NormClip_dqn')
     env.close()
 
 

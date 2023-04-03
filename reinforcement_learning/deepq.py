@@ -133,6 +133,7 @@ def learn(env,
 
     # Initialize environment and get first state
     obs = get_state(env.reset())
+    
     best_reward = 0
     # Iterate over the total number of time steps
     for t in range(total_timesteps):
@@ -166,8 +167,8 @@ def learn(env,
 
         if t > learning_starts and t % train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-            # loss = perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
-            loss = perform_ddqlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
+            loss = perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
+            # loss = perform_ddqlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
 
             writer.add_scalar("Loss", loss, t)
             training_losses.append(loss)

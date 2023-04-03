@@ -6,7 +6,7 @@ import numpy as np
 
 def get_state(state): 
     """ Helper function to transform state """ 
-    state = np.ascontiguousarray(state, dtype=np.float32) 
+    state = np.ascontiguousarray(state, dtype=np.float32)/255.0
     return np.expand_dims(state, axis=0)
 
 def visualize_training(episode_rewards, training_losses, model_identifier):
