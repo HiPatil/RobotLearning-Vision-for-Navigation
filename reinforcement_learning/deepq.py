@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.optim as optim
 from action import get_action_set, select_exploratory_action, select_greedy_action
-from learning import perform_qlearning_step, update_target_net
+from learning import perform_qlearning_step, perform_ddqlearning_step, update_target_net
 from model import DQN
 from replay_buffer import ReplayBuffer
 from schedule import LinearSchedule
@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 
 
-def evaluate(env, load_path='agent.pt'):
+def evaluate(env, load_path='agent_smallModel.pt'):
     """ Evaluate a trained model and compute your leaderboard scores
 
 	NO CHANGES SHOULD BE MADE TO THIS FUNCTION
@@ -166,7 +166,9 @@ def learn(env,
 
         if t > learning_starts and t % train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-            loss = perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
+            # loss = perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
+            loss = perform_ddqlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
+
             writer.add_scalar("Loss", loss, t)
             training_losses.append(loss)
 

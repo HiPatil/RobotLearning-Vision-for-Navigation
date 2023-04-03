@@ -7,7 +7,7 @@ def main():
     Evaluate a trained Deep Q-Learning agent 
     """ 
     env = gym.make("CarRacing-v0")
-    deepq.evaluate(env)
+    deepq.evaluate(env, load_path='models/agent_smallModel_ddqn.pt')
     env.close()
 
 if __name__ == '__main__':
