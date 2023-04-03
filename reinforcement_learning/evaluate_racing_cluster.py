@@ -10,7 +10,7 @@ def main():
     display = Display(visible=0, size=(800,600))
     display.start()
     env = gym.make("CarRacing-v0")
-    deepq.evaluate(env)
+    deepq.evaluate(env, load_path='models/agent.pt')
     env.close()
     display.stop()
 

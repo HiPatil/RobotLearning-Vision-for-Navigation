@@ -39,7 +39,7 @@ def perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, bat
         8. Clip the gradients
         9. Optimize the model
     """
-    clipping_value = 3
+    clipping_value = 2
 
     state, action, reward, next_state, done= replay_buffer.sample(batch_size)
 
@@ -125,7 +125,7 @@ def perform_ddqlearning_step(policy_net, target_net, optimizer, replay_buffer, b
     loss = F.mse_loss(policy_q, expected_q)
     optimizer.zero_grad()
     loss.backward()
-    torch.nn.utils.clip_grad_norm_(policy_net.parameters(), clipping_value)
+    # torch.nn.utils.clip_grad_norm_(policy_net.parameters(), clipping_value)
     optimizer.step()
 
     return loss.item()

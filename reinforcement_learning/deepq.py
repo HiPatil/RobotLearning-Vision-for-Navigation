@@ -8,9 +8,7 @@ from replay_buffer import ReplayBuffer
 from schedule import LinearSchedule
 from utils import get_state, visualize_training
 import cv2
-
-from torch.utils.tensorboard import SummaryWriter
-
+import wandb
 
 
 def evaluate(env, load_path='agent_smallModel.pt'):
@@ -65,7 +63,7 @@ def evaluate(env, load_path='agent_smallModel.pt'):
 
 def learn(env,
           lr=1e-4,
-          total_timesteps = 100000,
+          total_timesteps = 200000,
           buffer_size = 50000,
           exploration_fraction=0.1,
           exploration_final_eps=0.02,
@@ -75,7 +73,9 @@ def learn(env,
           learning_starts=1000,
           gamma=0.99,
           target_network_update_freq=500,
-          model_identifier='agent'):
+          model_identifier='agent',
+          _wandb=0,
+          algo='dqn'):
     """ Train a deep q-learning model.
     Parameters
     -------
@@ -106,7 +106,8 @@ def learn(env,
     model_identifier: string
         identifier of the agent
     """
-    writer = SummaryWriter('runs/' + model_identifier)
+    mode = 'online' if _wandb else 'disabled'
+    wandb.init(project='RLVN', name=model_identifier, reinit=True, mode=mode)
 
     episode_rewards = [0.0]
     training_losses = []
@@ -156,7 +157,8 @@ def learn(env,
 
         if done:
             # Start new episode after previous episode has terminated
-            writer.add_scalar("Reward", episode_rewards[-1], t)
+            wandb.log({"Reward":episode_rewards[-1]}, step=t)
+
             if best_reward<episode_rewards[-1]:
                 best_reward = episode_rewards[-1]
                 torch.save(policy_net.state_dict(), 'models/'+model_identifier+'_best.pt')
@@ -167,10 +169,12 @@ def learn(env,
 
         if t > learning_starts and t % train_freq == 0:
             # Minimize the error in Bellman's equation on a batch sampled from replay buffer.
-            loss = perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
-            # loss = perform_ddqlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
+            if algo=='ddqn':
+                loss = perform_ddqlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
+            else:
+                loss = perform_qlearning_step(policy_net, target_net, optimizer, replay_buffer, batch_size, gamma, device)
 
-            writer.add_scalar("Loss", loss, t)
+            wandb.log({"Loss":loss}, step=t)
             training_losses.append(loss)
 
         if t > learning_starts and t % target_network_update_freq == 0:
@@ -179,11 +183,8 @@ def learn(env,
             torch.save(policy_net.state_dict(), 'models/'+model_identifier+'.pt')
 
 
-    writer.flush()
     # Save the trained policy network
     torch.save(policy_net.state_dict(), 'models/'+model_identifier+'.pt')
 
     # Visualize the training loss and cumulative reward curves
     # visualize_training(episode_rewards, training_losses, model_identifier)
-
-    writer.close()

@@ -22,21 +22,21 @@ class DQN(nn.Module):
 
         # # # TODO: Create network
         self.block1 = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=8, stride=4),
+            nn.Conv2d(3, 32, kernel_size=7, stride=3),
             nn.ReLU(),
-            nn.Conv2d(32, 64, kernel_size=4, stride=2),
+            nn.Conv2d(32, 64, kernel_size=5, stride=2),
             nn.ReLU(),
             nn.Conv2d(64, 128, kernel_size=3, stride=1),
             nn.ReLU(),
         )
 
         self.linear_block = nn.Sequential(
-            nn.Linear(8192, 512),
+            nn.Linear(10368, 2048),
             nn.ReLU(),
-            # nn.Linear(512, 256),
-            # nn.ReLU(),
+            nn.Linear(2048, 256),
+            nn.ReLU(),
         )
-        self.q_scores = nn.Linear(512, self.action_size)
+        self.q_scores = nn.Linear(256, self.action_size)
 
 
     def forward(self, observation):
